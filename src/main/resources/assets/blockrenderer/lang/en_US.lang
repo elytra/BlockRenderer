@@ -21,4 +21,5 @@ gui.rendersize=Size
 
 gui.rendering=Rendering %1$s items from %2$s
 gui.rendered=Rendered %1$s items from %2$s
+gui.renderCancelled=Operation cancelled
 gui.progress=(%1$s/%2$s, %3$s to go)

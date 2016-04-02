@@ -25,7 +25,6 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.io.Files;
-
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.GuiIngameMenu;
@@ -121,7 +120,13 @@ public class BlockRenderer {
 						if (hovered != null) {
 							ItemStack is = hovered.getStack();
 							if (is != null) {
-								mc.ingameGUI.getChatGUI().printChatMessage(new ChatComponentText(render(is, new File("renders"), 512, true)));
+								int size = 512;
+								if (GuiScreen.isShiftKeyDown()) {
+									size = 16*new ScaledResolution(mc).getScaleFactor();
+								}
+								setUpRenderState(size);
+								mc.ingameGUI.getChatGUI().printChatMessage(new ChatComponentText(render(is, new File("renders"), true)));
+								tearDownRenderState();
 							} else {
 								mc.ingameGUI.getChatGUI().printChatMessage(new ChatComponentTranslation("msg.slot.empty"));
 							}
@@ -148,7 +153,7 @@ public class BlockRenderer {
 		List<ItemStack> li = Lists.newArrayList();
 		int rendered = 0;
 		for (ResourceLocation resloc : Item.itemRegistry.getKeys()) {
-			if (resloc != null && modids.contains(resloc.getResourceDomain())) {
+			if (resloc != null && modids.contains(resloc.getResourceDomain()) || modids.contains("*")) {
 				li.clear();
 				Item i = Item.itemRegistry.getObject(resloc);
 				try {
@@ -162,18 +167,29 @@ public class BlockRenderer {
 		File folder = new File("renders/"+dateFormat.format(new Date())+"_"+sanitize(modidSpec)+"/");
 		long lastUpdate = 0;
 		String joined = Joiner.on(", ").join(modids);
+		setUpRenderState(size);
 		for (ItemStack is : toRender) {
-			render(is, folder, size, false);
+			if (Keyboard.isKeyDown(Keyboard.KEY_ESCAPE))
+				break;
+			render(is, folder, false);
 			rendered++;
-			// 33 milliseconds is 30.303030303030303¯ FPS.
 			if (Minecraft.getSystemTime()-lastUpdate > 33) {
+				tearDownRenderState();
 				renderLoading(I18n.format("gui.rendering", toRender.size(), joined),
 						I18n.format("gui.progress", rendered, toRender.size(), (toRender.size()-rendered)),
 						is, (float)rendered/toRender.size());
 				lastUpdate = Minecraft.getSystemTime();
+				setUpRenderState(size);
 			}
 		}
-		renderLoading(I18n.format("gui.rendered", toRender.size(), Joiner.on(", ").join(modids)), "", null, 1);
+		if (rendered >= toRender.size()) {
+			renderLoading(I18n.format("gui.rendered", toRender.size(), Joiner.on(", ").join(modids)), "", null, 1);
+		} else {
+			renderLoading(I18n.format("gui.renderCancelled"),
+					I18n.format("gui.progress", rendered, toRender.size(), (toRender.size()-rendered)),
+					null, (float)rendered/toRender.size());
+		}
+		tearDownRenderState();
 		try {
 			Thread.sleep(1500);
 		} catch (InterruptedException e) {}
@@ -184,10 +200,6 @@ public class BlockRenderer {
 		mc.getFramebuffer().unbindFramebuffer();
 		GlStateManager.pushMatrix();
 			ScaledResolution res = new ScaledResolution(Minecraft.getMinecraft());
-			/*
-			 * If you're not familiar, this call switches the rendering mode from
-			 * 3D perspective to 2D orthogonal.
-			 */
 			mc.entityRenderer.setupOverlayRendering();
 			// Draw the dirt background and status text...
 			Rendering.drawBackground(res.getScaledWidth(), res.getScaledHeight());
@@ -241,51 +253,13 @@ public class BlockRenderer {
 		mc.getFramebuffer().bindFramebuffer(false);
 	}
 
-	private String render(ItemStack is, File folder, int desiredSize, boolean includeDateInFilename) {
+	private String render(ItemStack is, File folder, boolean includeDateInFilename) {
 		Minecraft mc = Minecraft.getMinecraft();
-		ScaledResolution res = new ScaledResolution(mc);
-		int size;
-		if (GuiScreen.isShiftKeyDown()) {
-			size = 16*res.getScaleFactor();
-		} else {
-			/*
-			 * As we render to the back-buffer, we need to cap our render size
-			 * to be within the window's bounds. If we didn't do this, the results
-			 * of our readPixels up ahead would be undefined. And nobody likes
-			 * undefined behavior.
-			 */
-			size = Math.min(Math.min(mc.displayHeight, mc.displayWidth), desiredSize);
-		}
 		String filename = (includeDateInFilename ? dateFormat.format(new Date())+"_" : "")+sanitize(is.getDisplayName())+".png";
 		GlStateManager.pushMatrix();
 			GlStateManager.clearColor(0, 0, 0, 0);
 			GlStateManager.clear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
-			// Again, switches from 3D to 2D
-			mc.entityRenderer.setupOverlayRendering();
-			RenderHelper.enableGUIStandardItemLighting();
-			/*
-			 * The GUI scale affects us due to the call to setupOverlayRendering
-			 * above. As such, we need to counteract this to always get a 512x512
-			 * render. We could manually switch to orthogonal mode, but it's just
-			 * more convenient to leverage setupOverlayRendering.
-			 */
-			float scale = size/(16f*res.getScaleFactor());
-			GlStateManager.translate(0, 0, -(scale*100));
-			
-			GlStateManager.scale(scale, scale, scale);
-			GlStateManager.translate(0, 0, -50);
-			
-			// All these enables/disables are to get the state into what the item/block renderer expects.
-			GlStateManager.enableDepth();
-			GlStateManager.enableAlpha();
-			GlStateManager.enableBlend();
-			GlStateManager.enableRescaleNormal();
-			GlStateManager.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
 			mc.renderItem.renderItemAndEffectIntoGUI(is, 0, 0);
-			GlStateManager.disableRescaleNormal();
-			GlStateManager.disableBlend();
-			GlStateManager.disableAlpha();
-			GlStateManager.disableDepth();
 		GlStateManager.popMatrix();
 		try {
 			/*
@@ -306,6 +280,55 @@ public class BlockRenderer {
 			ex.printStackTrace();
 			return I18n.format("msg.render.fail");
 		}
+	}
+	
+	private int size;
+	private float oldZLevel;
+	
+	private void setUpRenderState(int desiredSize) {
+		Minecraft mc = Minecraft.getMinecraft();
+		ScaledResolution res = new ScaledResolution(mc);
+		/*
+		 * As we render to the back-buffer, we need to cap our render size
+		 * to be within the window's bounds. If we didn't do this, the results
+		 * of our readPixels up ahead would be undefined. And nobody likes
+		 * undefined behavior.
+		 */
+		size = Math.min(Math.min(mc.displayHeight, mc.displayWidth), desiredSize);
+		
+		// Switches from 3D to 2D
+		mc.entityRenderer.setupOverlayRendering();
+		RenderHelper.enableGUIStandardItemLighting();
+		/*
+		 * The GUI scale affects us due to the call to setupOverlayRendering
+		 * above. As such, we need to counteract this to always get a 512x512
+		 * render. We could manually switch to orthogonal mode, but it's just
+		 * more convenient to leverage setupOverlayRendering.
+		 */
+		float scale = size/(16f*res.getScaleFactor());
+		GlStateManager.translate(0, 0, -(scale*100));
+		
+		GlStateManager.scale(scale, scale, scale);
+		
+		oldZLevel = mc.renderItem.zLevel;
+		mc.renderItem.zLevel = -50;
+
+		GlStateManager.enableRescaleNormal();
+		GlStateManager.enableColorMaterial();
+		GlStateManager.enableDepth();
+		GlStateManager.enableBlend();
+		GlStateManager.tryBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_SRC_ALPHA, GL11.GL_ONE);
+		GlStateManager.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+		GlStateManager.disableAlpha();
+	}
+	
+	private void tearDownRenderState() {
+		GlStateManager.disableLighting();
+		GlStateManager.disableColorMaterial();
+		GlStateManager.disableDepth();
+		GlStateManager.disableBlend();
+		
+		Minecraft.getMinecraft().renderItem.zLevel = oldZLevel;
 	}
 	
 	private String sanitize(String str) {
