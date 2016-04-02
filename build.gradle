@@ -65,8 +65,8 @@ jar {
 }
 
 minecraft {
-	version = "1.8.9-11.15.1.1761"
-	mappings = "snapshot_20160224"
+	version = "1.9-12.16.0.1826-1.9"
+	mappings = "snapshot_20160402"
 	
 	runDir = "eclipse"
 	

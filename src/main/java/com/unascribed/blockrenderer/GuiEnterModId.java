@@ -29,7 +29,7 @@ public class GuiEnterModId extends GuiScreen implements GuiResponder {
 		Keyboard.enableRepeatEvents(true);
 		String oldText = (text == null ? prefill : text.getText());
 		
-		float oldSize = (size == null ? 512 : size.func_175220_c());
+		float oldSize = (size == null ? 512 : size.getSliderValue());
 		
 		text = new GuiTextField(0, mc.fontRendererObj, width/2-100, height/6+50, 200, 20);
 		text.setText(oldText);
@@ -101,7 +101,7 @@ public class GuiEnterModId extends GuiScreen implements GuiResponder {
 		if (button.id == 1) {
 			if (mc.theWorld != null) {
 				BlockRenderer.inst.pendingBulkRender = text.getText();
-				BlockRenderer.inst.pendingBulkRenderSize = round(size.func_175220_c());
+				BlockRenderer.inst.pendingBulkRenderSize = round(size.getSliderValue());
 			}
 			mc.displayGuiScreen(old);
 		} else if (button.id == 2) {
@@ -138,7 +138,7 @@ public class GuiEnterModId extends GuiScreen implements GuiResponder {
 
 	@Override
 	public void onTick(int id, float value) {
-		size.func_175218_a(round(value), false);
+		size.setSliderValue(round(value), false);
 	}
 
 	@Override

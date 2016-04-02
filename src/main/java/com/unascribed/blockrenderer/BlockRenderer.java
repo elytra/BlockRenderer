@@ -38,10 +38,10 @@ import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.inventory.Slot;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.ChatComponentText;
-import net.minecraft.util.ChatComponentTranslation;
-import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.text.TextComponentString;
+import net.minecraft.util.text.TextComponentTranslation;
+import net.minecraft.util.text.TextFormatting;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.client.registry.ClientRegistry;
 import net.minecraftforge.fml.common.Mod;
@@ -125,16 +125,16 @@ public class BlockRenderer {
 									size = 16*new ScaledResolution(mc).getScaleFactor();
 								}
 								setUpRenderState(size);
-								mc.ingameGUI.getChatGUI().printChatMessage(new ChatComponentText(render(is, new File("renders"), true)));
+								mc.ingameGUI.getChatGUI().printChatMessage(new TextComponentString(render(is, new File("renders"), true)));
 								tearDownRenderState();
 							} else {
-								mc.ingameGUI.getChatGUI().printChatMessage(new ChatComponentTranslation("msg.slot.empty"));
+								mc.ingameGUI.getChatGUI().printChatMessage(new TextComponentTranslation("msg.slot.empty"));
 							}
 						} else {
-							mc.ingameGUI.getChatGUI().printChatMessage(new ChatComponentTranslation("msg.slot.absent"));
+							mc.ingameGUI.getChatGUI().printChatMessage(new TextComponentTranslation("msg.slot.absent"));
 						}
 					} else {
-						mc.ingameGUI.getChatGUI().printChatMessage(new ChatComponentTranslation("msg.notcontainer"));
+						mc.ingameGUI.getChatGUI().printChatMessage(new TextComponentTranslation("msg.notcontainer"));
 					}
 				}
 			} else {
@@ -219,7 +219,7 @@ public class BlockRenderer {
 							if (i == 0) {
 								list.set(i, is.getRarity().rarityColor + list.get(i));
 							} else {
-								list.set(i, EnumChatFormatting.GRAY + list.get(i));
+								list.set(i, TextFormatting.GRAY + list.get(i));
 							}
 						}
 			
