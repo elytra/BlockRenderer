@@ -4,6 +4,8 @@ import java.io.IOException;
 
 import org.lwjgl.input.Keyboard;
 
+import com.google.common.base.Strings;
+
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.GuiSlider;
@@ -12,18 +14,20 @@ import net.minecraft.client.gui.GuiPageButtonList.GuiResponder;
 import net.minecraft.client.resources.I18n;
 
 public class GuiEnterModId extends GuiScreen implements GuiResponder {
+	private String prefill;
 	private GuiTextField text;
 	private GuiSlider size;
 	private GuiScreen old;
 	
-	public GuiEnterModId(GuiScreen old) {
+	public GuiEnterModId(GuiScreen old, String prefill) {
 		this.old = old;
+		this.prefill = Strings.nullToEmpty(prefill);
 	}
 	
 	@Override
 	public void initGui() {
 		Keyboard.enableRepeatEvents(true);
-		String oldText = (text == null ? "" : text.getText());
+		String oldText = (text == null ? prefill : text.getText());
 		
 		float oldSize = (size == null ? 512 : size.func_175220_c());
 		

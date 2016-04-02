@@ -100,31 +100,36 @@ public class BlockRenderer {
 				if (!down) {
 					down = true;
 					Minecraft mc = Minecraft.getMinecraft();
+					Slot hovered = null;
+					GuiScreen currentScreen = mc.currentScreen;
+					if (currentScreen instanceof GuiContainer) {
+						int w = currentScreen.width;
+						int h = currentScreen.height;
+						final int x = Mouse.getX() * w / mc.displayWidth;
+						// OpenGL's Y-zero is at the *bottom* of the window.
+						// Minecraft's Y-zero is at the top. So, we need to flip it.
+						final int y = h - Mouse.getY() * h / mc.displayHeight - 1;
+						hovered = ((GuiContainer)currentScreen).getSlotAtPosition(x, y);
+					}
 					if (GuiScreen.isCtrlKeyDown()) {
-						mc.displayGuiScreen(new GuiEnterModId(mc.currentScreen));
-					} else {
-						GuiScreen currentScreen = mc.currentScreen;
-						if (currentScreen instanceof GuiContainer) {
-							int w = currentScreen.width;
-							int h = currentScreen.height;
-							final int x = Mouse.getX() * w / mc.displayWidth;
-							// OpenGL's Y-zero is at the *bottom* of the window.
-							// Minecraft's Y-zero is at the top. So, we need to flip it.
-							final int y = h - Mouse.getY() * h / mc.displayHeight - 1;
-							Slot s = ((GuiContainer)currentScreen).getSlotAtPosition(x, y);
-							if (s != null) {
-								ItemStack is = s.getStack();
-								if (is != null) {
-									mc.ingameGUI.getChatGUI().printChatMessage(new ChatComponentText(render(is, new File("renders"), 512, true)));
-								} else {
-									mc.ingameGUI.getChatGUI().printChatMessage(new ChatComponentTranslation("msg.slot.empty"));
-								}
+						String modid = null;
+						if (hovered != null && hovered.getHasStack()) {
+							modid = Item.itemRegistry.getNameForObject(hovered.getStack().getItem()).getResourceDomain();
+						}
+						mc.displayGuiScreen(new GuiEnterModId(mc.currentScreen, modid));
+					} else if (currentScreen instanceof GuiContainer) {
+						if (hovered != null) {
+							ItemStack is = hovered.getStack();
+							if (is != null) {
+								mc.ingameGUI.getChatGUI().printChatMessage(new ChatComponentText(render(is, new File("renders"), 512, true)));
 							} else {
-								mc.ingameGUI.getChatGUI().printChatMessage(new ChatComponentTranslation("msg.slot.absent"));
+								mc.ingameGUI.getChatGUI().printChatMessage(new ChatComponentTranslation("msg.slot.empty"));
 							}
 						} else {
-							mc.ingameGUI.getChatGUI().printChatMessage(new ChatComponentTranslation("msg.notcontainer"));
+							mc.ingameGUI.getChatGUI().printChatMessage(new ChatComponentTranslation("msg.slot.absent"));
 						}
+					} else {
+						mc.ingameGUI.getChatGUI().printChatMessage(new ChatComponentTranslation("msg.notcontainer"));
 					}
 				}
 			} else {
