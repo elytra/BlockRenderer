@@ -12,7 +12,7 @@ buildscript {
 		}
 	}
 	dependencies {
-		classpath 'net.minecraftforge.gradle:ForgeGradle:2.1-SNAPSHOT'
+		classpath 'net.minecraftforge.gradle:ForgeGradle:2.2-SNAPSHOT'
 		classpath 'me.tatarka:gradle-retrolambda:3.2.0'
 	}
 }
@@ -23,7 +23,7 @@ apply plugin: 'maven'
 
 group = "com.unascribed"
 archivesBaseName = "BlockRenderer"
-version = "0.3.4"
+version = "1.0.0"
 
 sourceCompatibility = 1.8
 targetCompatibility = 1.8
@@ -65,8 +65,8 @@ jar {
 }
 
 minecraft {
-	version = "1.9-12.16.0.1826-1.9"
-	mappings = "snapshot_20160402"
+	version = "1.9.4-12.17.0.1962"
+	mappings = "snapshot_20160613"
 	
 	runDir = "eclipse"
 	

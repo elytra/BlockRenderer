@@ -57,7 +57,7 @@ import net.minecraftforge.fml.common.gameevent.TickEvent.RenderTickEvent;
 public class BlockRenderer {
 	public static final String MODID = "blockrenderer";
 	public static final String NAME = "BlockRenderer";
-	public static final String VERSION = "0.3.3";
+	public static final String VERSION = "1.0.0";
 	
 	@Instance
 	public static BlockRenderer inst;
@@ -113,7 +113,7 @@ public class BlockRenderer {
 					if (GuiScreen.isCtrlKeyDown()) {
 						String modid = null;
 						if (hovered != null && hovered.getHasStack()) {
-							modid = Item.itemRegistry.getNameForObject(hovered.getStack().getItem()).getResourceDomain();
+							modid = Item.REGISTRY.getNameForObject(hovered.getStack().getItem()).getResourceDomain();
 						}
 						mc.displayGuiScreen(new GuiEnterModId(mc.currentScreen, modid));
 					} else if (currentScreen instanceof GuiContainer) {
@@ -152,10 +152,10 @@ public class BlockRenderer {
 		List<ItemStack> toRender = Lists.newArrayList();
 		List<ItemStack> li = Lists.newArrayList();
 		int rendered = 0;
-		for (ResourceLocation resloc : Item.itemRegistry.getKeys()) {
+		for (ResourceLocation resloc : Item.REGISTRY.getKeys()) {
 			if (resloc != null && modids.contains(resloc.getResourceDomain()) || modids.contains("*")) {
 				li.clear();
-				Item i = Item.itemRegistry.getObject(resloc);
+				Item i = Item.REGISTRY.getObject(resloc);
 				try {
 					i.getSubItems(i, i.getCreativeTab(), li);
 				} catch (Throwable t) {
@@ -255,7 +255,7 @@ public class BlockRenderer {
 
 	private String render(ItemStack is, File folder, boolean includeDateInFilename) {
 		Minecraft mc = Minecraft.getMinecraft();
-		String filename = (includeDateInFilename ? dateFormat.format(new Date())+"_" : "")+sanitize(is.getDisplayName())+".png";
+		String filename = (includeDateInFilename ? dateFormat.format(new Date())+"_" : "")+sanitize(is.getDisplayName());
 		GlStateManager.pushMatrix();
 			GlStateManager.clearColor(0, 0, 0, 0);
 			GlStateManager.clear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
@@ -271,7 +271,12 @@ public class BlockRenderer {
 			 */
 			BufferedImage img = createFlipped(readPixels(size, size));
 			
-			File f = new File(folder, filename);
+			File f = new File(folder, filename+".png");
+			int i = 2;
+			while (f.exists()) {
+				f = new File(folder, filename+"_"+i+".png");
+				i++;
+			}
 			Files.createParentDirs(f);
 			f.createNewFile();
 			ImageIO.write(img, "PNG", f);
