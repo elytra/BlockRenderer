@@ -65,11 +65,11 @@ jar {
 }
 
 minecraft {
-	version = "1.9.4-12.17.0.1962"
-	mappings = "snapshot_20160613"
-	
+	version = "1.11-13.19.1.2189"
+	mappings = "snapshot_20161111"
+
 	runDir = "eclipse"
-	
+
 	makeObfSourceJar = false
 }
 
@@ -81,33 +81,13 @@ processResources {
 	// replace stuff in mcmod.info, nothing else
 	from(sourceSets.main.resources.srcDirs) {
 		include 'mcmod.info'
-				
+
 		// replace version and mcversion
 		expand 'version':project.version, 'mcversion':project.minecraft.version
 	}
-		
+
 	// copy everything else, thats not the mcmod.info
 	from(sourceSets.main.resources.srcDirs) {
 		exclude 'mcmod.info'
-	}
-}
-
-def parseConfig(File config) {
-	config.withReader {
-		def prop = new Properties()
-		prop.load(it)
-		return (new ConfigSlurper().parse(prop))
-	}
-}
-
-ext.priv = parseConfig(file('private.properties'))
-
-uploadArchives {
-	repositories.mavenDeployer {
-		configuration = configurations.deploy
-		pom.artifactId = 'blockrenderer'
-		repository(url: "scp://"+priv.scpHost+priv.scpPath+"/releases") {
-			authentication(userName: priv.scpUser, privateKey: file(priv.scpKey))
-		}
 	}
 }

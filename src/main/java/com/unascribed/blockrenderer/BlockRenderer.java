@@ -38,6 +38,7 @@ import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.inventory.Slot;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
+import net.minecraft.util.NonNullList;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.text.TextComponentString;
 import net.minecraft.util.text.TextComponentTranslation;
@@ -150,7 +151,7 @@ public class BlockRenderer {
 			modids.add(str.trim());
 		}
 		List<ItemStack> toRender = Lists.newArrayList();
-		List<ItemStack> li = Lists.newArrayList();
+		NonNullList<ItemStack> li = NonNullList.func_191196_a();
 		int rendered = 0;
 		for (ResourceLocation resloc : Item.REGISTRY.getKeys()) {
 			if (resloc != null && modids.contains(resloc.getResourceDomain()) || modids.contains("*")) {
