@@ -1,17 +1,15 @@
 package com.unascribed.blockrenderer;
 
-import java.io.IOException;
-
-import org.lwjgl.input.Keyboard;
-
 import com.google.common.base.Strings;
-
 import net.minecraft.client.gui.GuiButton;
+import net.minecraft.client.gui.GuiPageButtonList.GuiResponder;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.GuiSlider;
 import net.minecraft.client.gui.GuiTextField;
-import net.minecraft.client.gui.GuiPageButtonList.GuiResponder;
 import net.minecraft.client.resources.I18n;
+import org.lwjgl.input.Keyboard;
+
+import java.io.IOException;
 
 public class GuiEnterModId extends GuiScreen implements GuiResponder {
 	private String prefill;
@@ -31,7 +29,7 @@ public class GuiEnterModId extends GuiScreen implements GuiResponder {
 		
 		float oldSize = (size == null ? 512 : size.getSliderValue());
 		
-		text = new GuiTextField(0, mc.fontRendererObj, width/2-100, height/6+50, 200, 20);
+		text = new GuiTextField(0, mc.fontRenderer, width/2-100, height/6+50, 200, 20);
 		text.setText(oldText);
 		
 		buttonList.add(new GuiButton(2, width/2-100, height/6+120, 98, 20, I18n.format("gui.cancel")));
@@ -47,7 +45,7 @@ public class GuiEnterModId extends GuiScreen implements GuiResponder {
 		
 		text.setFocused(true);
 		text.setCanLoseFocus(false);
-		boolean enabled = mc.theWorld != null;
+		boolean enabled = mc.world != null;
 		render.enabled = enabled;
 		text.setEnabled(enabled);
 		size.enabled = enabled;
@@ -68,9 +66,9 @@ public class GuiEnterModId extends GuiScreen implements GuiResponder {
 	public void drawScreen(int mouseX, int mouseY, float partialTicks) {
 		drawDefaultBackground();
 		super.drawScreen(mouseX, mouseY, partialTicks);
-		drawCenteredString(mc.fontRendererObj, I18n.format("gui.entermodid"), width/2, height/6, -1);
-		if (mc.theWorld == null) {
-			drawCenteredString(mc.fontRendererObj, I18n.format("gui.noworld"), width/2, height/6+30, 0xFF5555);
+		drawCenteredString(mc.fontRenderer, I18n.format("gui.entermodid"), width/2, height/6, -1);
+		if (mc.world == null) {
+			drawCenteredString(mc.fontRenderer, I18n.format("gui.noworld"), width/2, height/6+30, 0xFF5555);
 		} else {
 			boolean widthCap = (mc.displayWidth < 2048);
 			boolean heightCap = (mc.displayHeight < 2048);
@@ -89,7 +87,7 @@ public class GuiEnterModId extends GuiScreen implements GuiResponder {
 				str = "gui.cappedheight";
 			}
 			if (str != null) {
-				drawCenteredString(mc.fontRendererObj, I18n.format(str, Math.min(mc.displayHeight, mc.displayWidth)), width/2, height/6+104, 0xFFFFFF);
+				drawCenteredString(mc.fontRenderer, I18n.format(str, Math.min(mc.displayHeight, mc.displayWidth)), width/2, height/6+104, 0xFFFFFF);
 			}
 		}
 		text.drawTextBox();
@@ -99,7 +97,7 @@ public class GuiEnterModId extends GuiScreen implements GuiResponder {
 	protected void actionPerformed(GuiButton button) throws IOException {
 		super.actionPerformed(button);
 		if (button.id == 1) {
-			if (mc.theWorld != null) {
+			if (mc.world != null) {
 				BlockRenderer.inst.pendingBulkRender = text.getText();
 				BlockRenderer.inst.pendingBulkRenderSize = round(size.getSliderValue());
 			}

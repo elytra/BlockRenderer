@@ -12,7 +12,7 @@ buildscript {
 		}
 	}
 	dependencies {
-		classpath 'net.minecraftforge.gradle:ForgeGradle:2.2-SNAPSHOT'
+		classpath 'net.minecraftforge.gradle:ForgeGradle:2.3-SNAPSHOT'
 		classpath 'me.tatarka:gradle-retrolambda:3.2.0'
 	}
 }
@@ -65,8 +65,8 @@ jar {
 }
 
 minecraft {
-	version = "1.11-13.19.1.2189"
-	mappings = "snapshot_20161111"
+	version = "1.12-14.21.0.2342"
+	mappings = "snapshot_20170621"
 
 	runDir = "eclipse"
 

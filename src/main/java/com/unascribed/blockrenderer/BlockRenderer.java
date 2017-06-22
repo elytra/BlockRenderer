@@ -13,6 +13,7 @@ import java.util.Set;
 
 import javax.imageio.ImageIO;
 
+import net.minecraft.client.util.ITooltipFlag;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.lwjgl.BufferUtils;
@@ -151,14 +152,14 @@ public class BlockRenderer {
 			modids.add(str.trim());
 		}
 		List<ItemStack> toRender = Lists.newArrayList();
-		NonNullList<ItemStack> li = NonNullList.func_191196_a();
+		NonNullList<ItemStack> li = NonNullList.create();
 		int rendered = 0;
 		for (ResourceLocation resloc : Item.REGISTRY.getKeys()) {
 			if (resloc != null && modids.contains(resloc.getResourceDomain()) || modids.contains("*")) {
 				li.clear();
 				Item i = Item.REGISTRY.getObject(resloc);
 				try {
-					i.getSubItems(i, i.getCreativeTab(), li);
+					i.getSubItems(i.getCreativeTab(), li);
 				} catch (Throwable t) {
 					log.warn("Failed to get renderable items for "+resloc, t);
 				}
@@ -204,16 +205,16 @@ public class BlockRenderer {
 			mc.entityRenderer.setupOverlayRendering();
 			// Draw the dirt background and status text...
 			Rendering.drawBackground(res.getScaledWidth(), res.getScaledHeight());
-			Rendering.drawCenteredString(mc.fontRendererObj, title, res.getScaledWidth()/2, res.getScaledHeight()/2-24, -1);
+			Rendering.drawCenteredString(mc.fontRenderer, title, res.getScaledWidth()/2, res.getScaledHeight()/2-24, -1);
 			Rendering.drawRect(res.getScaledWidth()/2-50, res.getScaledHeight()/2-1, res.getScaledWidth()/2+50, res.getScaledHeight()/2+1, 0xFF001100);
 			Rendering.drawRect(res.getScaledWidth()/2-50, res.getScaledHeight()/2-1, (res.getScaledWidth()/2-50)+(int)(progress*100), res.getScaledHeight()/2+1, 0xFF55FF55);
 			GlStateManager.pushMatrix();
 				GlStateManager.scale(0.5f, 0.5f, 1);
-				Rendering.drawCenteredString(mc.fontRendererObj, subtitle, res.getScaledWidth(), res.getScaledHeight()-20, -1);
+				Rendering.drawCenteredString(mc.fontRenderer, subtitle, res.getScaledWidth(), res.getScaledHeight()-20, -1);
 				// ...and draw the tooltip.
 				if (is != null) {
 					try {
-						List<String> list = is.getTooltip(mc.thePlayer, true);
+						List<String> list = is.getTooltip(mc.player, ITooltipFlag.TooltipFlags.NORMAL);
 			
 						// This code is copied from the tooltip renderer, so we can properly center it.
 						for (int i = 0; i < list.size(); ++i) {
@@ -226,7 +227,7 @@ public class BlockRenderer {
 			
 						FontRenderer font = is.getItem().getFontRenderer(is);
 						if (font == null) {
-							font = mc.fontRendererObj;
+							font = mc.fontRenderer;
 						}
 						int width = 0;
 			
@@ -260,7 +261,7 @@ public class BlockRenderer {
 		GlStateManager.pushMatrix();
 			GlStateManager.clearColor(0, 0, 0, 0);
 			GlStateManager.clear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
-			mc.renderItem.renderItemAndEffectIntoGUI(is, 0, 0);
+			mc.getRenderItem().renderItemAndEffectIntoGUI(is, 0, 0);
 		GlStateManager.popMatrix();
 		try {
 			/*
@@ -316,8 +317,8 @@ public class BlockRenderer {
 		
 		GlStateManager.scale(scale, scale, scale);
 		
-		oldZLevel = mc.renderItem.zLevel;
-		mc.renderItem.zLevel = -50;
+		oldZLevel = mc.getRenderItem().zLevel;
+		mc.getRenderItem().zLevel = -50;
 
 		GlStateManager.enableRescaleNormal();
 		GlStateManager.enableColorMaterial();
@@ -334,7 +335,7 @@ public class BlockRenderer {
 		GlStateManager.disableDepth();
 		GlStateManager.disableBlend();
 		
-		Minecraft.getMinecraft().renderItem.zLevel = oldZLevel;
+		Minecraft.getMinecraft().getRenderItem().zLevel = oldZLevel;
 	}
 	
 	private String sanitize(String str) {
