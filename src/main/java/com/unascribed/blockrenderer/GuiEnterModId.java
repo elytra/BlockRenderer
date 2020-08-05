@@ -31,6 +31,7 @@ public class GuiEnterModId extends GuiScreen implements GuiResponder {
 		
 		text = new GuiTextField(0, mc.fontRenderer, width/2-100, height/6+50, 200, 20);
 		text.setText(oldText);
+		text.setMaxStringLength(4096);
 		
 		buttonList.add(new GuiButton(2, width/2-100, height/6+120, 98, 20, I18n.format("gui.cancel")));
 		GuiButton render = new GuiButton(1, width/2+2, height/6+120, 98, 20, I18n.format("gui.render"));
