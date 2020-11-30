@@ -34,6 +34,7 @@ import net.minecraft.client.renderer.RenderHelper;
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.client.util.InputMappings;
 import net.minecraft.inventory.container.Slot;
+import net.minecraft.item.EnchantedBookItem;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemGroup;
 import net.minecraft.item.ItemStack;
@@ -155,7 +156,7 @@ public class BlockRenderer {
         for (String str : modidSpec.split(",")) {
             modIds.add(str.trim());
         }
-        List<ItemStack> toRender = Lists.newArrayList();
+        List<ItemStack> toRender = new ArrayList<>();
         NonNullList<ItemStack> li = NonNullList.create();
         boolean wildcard = modIds.contains("*");
         for (Entry<RegistryKey<Item>, Item> entry : ForgeRegistries.ITEMS.getEntries()) {
@@ -163,10 +164,15 @@ public class BlockRenderer {
                 li.clear();
                 Item item = entry.getValue();
                 ItemGroup group = item.getGroup();
-                try {
-                    item.fillItemGroup(group, li);
-                } catch (Throwable t) {
-                    log.warn("Failed to get renderable items for {} and group {}", entry.getKey().getLocation(), group, t);
+                if (group == null && item instanceof EnchantedBookItem) {
+                    //Vanilla has special handing for filling the enchanted book item's group, so just grab a single enchanted book
+                    li.add(new ItemStack(item));
+                } else {
+                    try {
+                        item.fillItemGroup(group, li);
+                    } catch (Throwable t) {
+                        log.warn("Failed to get renderable items for {} and group {}", item.getRegistryName(), group, t);
+                    }
                 }
                 toRender.addAll(li);
             }
@@ -178,8 +184,7 @@ public class BlockRenderer {
         // by batchIndex + 1. This allows us to have our progress bar properly
         // render instead of us freezing the game trying to render all the items
         // during a single tick
-        //TODO: Experiment with the batch size more
-        List<List<ItemStack>> batchedLists = Lists.partition(toRender, 5);
+        List<List<ItemStack>> batchedLists = Lists.partition(toRender, 7);
         for (int batchIndex = 0, batchedCount = batchedLists.size(); batchIndex < batchedCount; batchIndex++) {
             futures.add(createFuture(batchedLists.get(batchIndex), size, folder, false, batchIndex + 1));
         }
@@ -200,7 +205,7 @@ public class BlockRenderer {
         int size = Math.min(Math.min(mc.getMainWindow().getHeight(), mc.getMainWindow().getWidth()), desiredSize);
 
         // Switches from 3D to 2D
-        RenderSystem.clear(256, true);
+        RenderSystem.clear(GL11.GL_DEPTH_BUFFER_BIT, Minecraft.IS_RUNNING_ON_MAC);
         RenderSystem.matrixMode(GL11.GL_PROJECTION);
         RenderSystem.loadIdentity();
         RenderSystem.ortho(0.0D, Minecraft.getInstance().getMainWindow().getScaledWidth(), Minecraft.getInstance().getMainWindow().getScaledHeight(),
@@ -267,23 +272,21 @@ public class BlockRenderer {
     }
 
     private ITextComponent render(Minecraft mc, ItemStack stack, int size, File folder, boolean includeDateInFilename) {
+        //Draw and read image on main thread
         setUpRenderState(mc, size);
         RenderSystem.clearColor(0, 0, 0, 0);
-        RenderSystem.clear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT, false);//TODO: Re-evaluate Minecraft.IS_RUNNING_ON_MAC);
+        RenderSystem.clear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT, Minecraft.IS_RUNNING_ON_MAC);
         mc.getItemRenderer().renderItemAndEffectIntoGUI(stack, 0, 0);
-        ITextComponent result;
+        BufferedImage image = readPixels(size, size);
+        tearDownRenderState();
         try {
-            //Read image on main thread
-            BufferedImage image = readPixels(size, size);
-            //Save it off thread
+            //And then save the image off thread
             File file = CompletableFuture.supplyAsync(() -> saveImage(image, stack, folder, includeDateInFilename), Util.getServerExecutor()).get();
-            result = new TranslationTextComponent("msg.render.success", file.getPath());
+            return new TranslationTextComponent("msg.render.success", file.getPath());
         } catch (InterruptedException | ExecutionException ex) {
             ex.printStackTrace();
-            result = new TranslationTextComponent("msg.render.fail");
+            return new TranslationTextComponent("msg.render.fail");
         }
-        tearDownRenderState();
-        return result;
     }
 
     private static final ScheduledExecutorService SCHEDULER = new ScheduledThreadPoolExecutor(0);
@@ -303,7 +306,7 @@ public class BlockRenderer {
             List<Pair<ItemStack, BufferedImage>> images = new ArrayList<>();
             for (ItemStack stack : stacks) {
                 RenderSystem.clearColor(0, 0, 0, 0);
-                RenderSystem.clear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT, false);//TODO: Re-evaluate Minecraft.IS_RUNNING_ON_MAC);
+                RenderSystem.clear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT, Minecraft.IS_RUNNING_ON_MAC);
                 Minecraft.getInstance().getItemRenderer().renderItemAndEffectIntoGUI(stack, 0, 0);
                 images.add(Pair.of(stack, readPixels(size, size)));
             }
@@ -353,7 +356,7 @@ public class BlockRenderer {
          * (That's *negative* 100%.)
          */
         at.concatenate(AffineTransform.getScaleInstance(1, -1));
-        /**
+        /*
          * We then need to translate the image back up by it's height, as flipping
          * it over moves it off the bottom of the canvas.
          */
