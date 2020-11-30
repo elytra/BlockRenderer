@@ -79,7 +79,7 @@ public class ProgressBarGui extends LoadingGui {
         RenderSystem.disableBlend();
         int l1 = (int) (scaledHeight * 0.8325D);
         progress = MathHelper.clamp(progress * 0.95F + asyncReloader.estimateExecutionSpeed() * 0.05F, 0.0F, 1.0F);
-        //net.minecraftforge.fml.client.ClientModLoader.renderProgressText();
+        renderProgressText();
         if (f < 1.0F) {
             func_238629_a_(matrix, scaledWidth / 2 - k1, l1 - 5, scaledWidth / 2 + k1, l1 + 5, 1.0F - MathHelper.clamp(f, 0.0F, 1.0F));
         }
@@ -110,5 +110,10 @@ public class ProgressBarGui extends LoadingGui {
         fill(matrix, p_238629_2_, p_238629_3_, p_238629_2_ + 1, p_238629_5_, k);
         fill(matrix, p_238629_4_, p_238629_3_, p_238629_4_ - 1, p_238629_5_, k);
         fill(matrix, p_238629_2_ + 2, p_238629_3_ + 2, p_238629_2_ + i, p_238629_5_ - 2, k);
+    }
+
+    private void renderProgressText() {
+        //TODO: Show data about which stack is currently being rendered
+        //net.minecraftforge.fml.client.ClientModLoader.renderProgressText();
     }
 }

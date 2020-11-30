@@ -60,6 +60,7 @@ import org.lwjgl.opengl.GL12;
 @Mod(BlockRenderer.MODID)
 public class BlockRenderer {
 
+    private static final ScheduledExecutorService SCHEDULER = new ScheduledThreadPoolExecutor(0);
     public static final String MODID = "blockrenderer";
 
     public static BlockRenderer inst;
@@ -74,6 +75,7 @@ public class BlockRenderer {
 
     public BlockRenderer() {
         inst = this;
+        //TODO: Make putting this on the server by accident not cause crashes and instead just NO-OP
         bind = new KeyBinding("key.render", GLFW.GLFW_KEY_GRAVE_ACCENT, "key.categories.blockrenderer");
         ClientRegistry.registerKeyBinding(bind);
         MinecraftForge.EVENT_BUS.addListener(EventPriority.HIGHEST, this::onFrameStart);
@@ -97,14 +99,12 @@ public class BlockRenderer {
     }
 
     public void onFrameStart(RenderTickEvent e) {
-        /**
-         * Quick primer: OpenGL is double-buffered. This means, where we draw to is
-         * /not/ on the screen. As such, we are free to do whatever we like before
-         * Minecraft renders, as long as we put everything back the way it was.
-         */
+        //Quick primer: OpenGL is double-buffered. This means, where we draw to is
+        // /not/ on the screen. As such, we are free to do whatever we like before
+        // Minecraft renders, as long as we put everything back the way it was.
         if (e.phase == Phase.START) {
             if (pendingBulkRender != null) {
-                // We *must* call render code in pre-render. If we don't, it won't work right.
+                //We *must* call render code in pre-render. If we don't, it won't work right.
                 bulkRender(pendingBulkRender, pendingBulkRenderSize);
                 pendingBulkRender = null;
             }
@@ -188,7 +188,6 @@ public class BlockRenderer {
         for (int batchIndex = 0, batchedCount = batchedLists.size(); batchIndex < batchedCount; batchIndex++) {
             futures.add(createFuture(batchedLists.get(batchIndex), size, folder, false, batchIndex + 1));
         }
-        //TODO: Show data on progress screen about which stack is currently being rendered??
         mc.setLoadingGui(new ProgressBarGui(mc, futures));
     }
 
@@ -196,15 +195,13 @@ public class BlockRenderer {
 
     private void setUpRenderState(Minecraft mc, int desiredSize) {
         RenderSystem.pushMatrix();
-        /*
-         * As we render to the back-buffer, we need to cap our render size
-         * to be within the window's bounds. If we didn't do this, the results
-         * of our readPixels up ahead would be undefined. And nobody likes
-         * undefined behavior.
-         */
+        //As we render to the back-buffer, we need to cap our render size
+        // to be within the window's bounds. If we didn't do this, the results
+        // of our readPixels up ahead would be undefined. And nobody likes
+        // undefined behavior.
         int size = Math.min(Math.min(mc.getMainWindow().getHeight(), mc.getMainWindow().getWidth()), desiredSize);
 
-        // Switches from 3D to 2D
+        //Switches from 3D to 2D
         RenderSystem.clear(GL11.GL_DEPTH_BUFFER_BIT, Minecraft.IS_RUNNING_ON_MAC);
         RenderSystem.matrixMode(GL11.GL_PROJECTION);
         RenderSystem.loadIdentity();
@@ -214,12 +211,10 @@ public class BlockRenderer {
         RenderSystem.loadIdentity();
         RenderSystem.translatef(0.0F, 0.0F, -2000.0F);
         RenderHelper.enableStandardItemLighting();
-        /*
-         * The GUI scale affects us due to the call to setupOverlayRendering
-         * above. As such, we need to counteract this to always get a 512x512
-         * render. We could manually switch to orthogonal mode, but it's just
-         * more convenient to leverage setupOverlayRendering.
-         */
+        //The GUI scale affects us due to the call to setupOverlayRendering
+        // above. As such, we need to counteract this to always get a 512x512
+        // render. We could manually switch to orthogonal mode, but it's just
+        // more convenient to leverage setupOverlayRendering.
         double scale = size / (16 * mc.getMainWindow().getGuiScaleFactor());
         RenderSystem.translated(0, 0, -(scale * 100));
 
@@ -252,18 +247,11 @@ public class BlockRenderer {
     }
 
     private static BufferedImage readPixels(int width, int height) {
-        /*
-         * Make sure we're reading from the back buffer, not the front buffer.
-         * The front buffer is what is currently on-screen, and is useful for
-         * screenshots.
-         */
-        //TODO: Doesn't seem to be a thing anymore and prints a bunch of gl warnings instead?
-        //GL11.glReadBuffer(GL11.GL_BACK);
-        // Allocate a native data array to fit our pixels
+        //Allocate a native data array to fit our pixels
         ByteBuffer buf = BufferUtils.createByteBuffer(width * height * 4);
-        // And finally read the pixel data from the GPU...
+        //And finally read the pixel data from the GPU...
         RenderSystem.readPixels(0, Minecraft.getInstance().getMainWindow().getHeight() - height, width, height, GL12.GL_BGRA, GL11.GL_UNSIGNED_BYTE, buf);
-        // ...and turn it into a Java object we can do things to.
+        //...and turn it into a Java object we can do things to.
         BufferedImage img = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
         int[] pixels = new int[width * height];
         buf.asIntBuffer().get(pixels);
@@ -289,19 +277,21 @@ public class BlockRenderer {
         }
     }
 
-    private static final ScheduledExecutorService SCHEDULER = new ScheduledThreadPoolExecutor(0);
-
     private CompletableFuture<Void> createFuture(List<ItemStack> stacks, int size, File folder, boolean includeDateInFilename, int tickDelay) {
         //TODO: Allow early exiting again?
         Executor gameExecutor;
         if (tickDelay == 0) {
             gameExecutor = Minecraft.getInstance();
         } else {
-            //TODO: Note about why we delay things
+            //Note: We delay our executors by the given number of ticks so that we
+            // can allow the progress screen to properly render instead of clogging
+            // up the main game thread on rendering all the items
             gameExecutor = r -> SCHEDULER.schedule(() -> Minecraft.getInstance().execute(r), tickDelay * 50, TimeUnit.MILLISECONDS);
         }
         return CompletableFuture.supplyAsync(() -> {
-            //TODO: Note we batch render state for our sub-batch
+            //Setup the render state for our batch on the main thread,
+            // render the entire batch gathering the images for it
+            // and revert the render state
             setUpRenderState(Minecraft.getInstance(), size);
             List<Pair<ItemStack, BufferedImage>> images = new ArrayList<>();
             for (ItemStack stack : stacks) {
@@ -313,6 +303,7 @@ public class BlockRenderer {
             tearDownRenderState();
             return images;
         }, gameExecutor).thenAcceptAsync(images -> {
+            //Save images off thread
             for (Pair<ItemStack, BufferedImage> image : images) {
                 saveImage(image.getSecond(), image.getFirst(), folder, includeDateInFilename);
             }
@@ -321,13 +312,11 @@ public class BlockRenderer {
 
     private static File saveImage(BufferedImage image, ItemStack stack, File folder, boolean includeDateInFilename) {
         try {
-            /*
-             * We need to flip the image over here, because again, GL Y-zero is
-             * the bottom, so it's "Y-up". Minecraft's Y-zero is the top, so it's
-             * "Y-down". Since readPixels is Y-up, our Y-down render is flipped.
-             * It's easier to do this operation on the resulting image than to
-             * do it with GL transforms. Not faster, just easier.
-             */
+            //We need to flip the image over here, because again, GL Y-zero is
+            // the bottom, so it's "Y-up". Minecraft's Y-zero is the top, so it's
+            // "Y-down". Since readPixels is Y-up, our Y-down render is flipped.
+            // It's easier to do this operation on the resulting image than to
+            // do it with GL transforms. Not faster, just easier.
             BufferedImage flipped = createFlipped(image);
             String fileName = (includeDateInFilename ? dateFormat.format(new Date()) + "_" : "") + sanitize(stack.getDisplayName().getString());
             File f = new File(folder, fileName + ".png");
@@ -348,18 +337,13 @@ public class BlockRenderer {
 
     private static BufferedImage createFlipped(BufferedImage image) {
         AffineTransform at = new AffineTransform();
-        /*
-         * Creates a compound affine transform, instead of just one, as we need
-         * to perform two transformations.
-         *
-         * The first one is to scale the image to 100% width, and -100% height.
-         * (That's *negative* 100%.)
-         */
+        //Creates a compound affine transform, instead of just one, as we need
+        // to perform two transformations.
+        // The first one is to scale the image to 100% width, and -100% height.
+        // (That's *negative* 100%.)
         at.concatenate(AffineTransform.getScaleInstance(1, -1));
-        /*
-         * We then need to translate the image back up by it's height, as flipping
-         * it over moves it off the bottom of the canvas.
-         */
+        //We then need to translate the image back up by it's height, as flipping
+        // it over moves it off the bottom of the canvas.
         at.concatenate(AffineTransform.getTranslateInstance(0, -image.getHeight()));
         return createTransformed(image, at);
     }
