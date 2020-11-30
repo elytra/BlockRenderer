@@ -1,0 +1,22 @@
+modLoader="javafml"
+loaderVersion="${loader_version}"
+license="MIT"
+
+[[mods]]
+    modId="blockrenderer"
+    version="${version}"
+    displayName="BlockRenderer"
+    displayURL="https://unascribed.com"
+    authors="Una"
+    description='''It renders blocks and items.'''
+
+[[dependencies.blockrenderer]]
+    modId="minecraft"
+    mandatory=true
+    versionRange="${mc_version}"
+    side="BOTH"
+[[dependencies.blockrenderer]]
+    modId="forge"
+    mandatory=true
+    versionRange="${forge_version}"
+    side="BOTH"
