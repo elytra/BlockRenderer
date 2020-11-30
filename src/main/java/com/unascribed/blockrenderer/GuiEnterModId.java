@@ -7,7 +7,6 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.AbstractSlider;
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.client.gui.widget.button.Button;
-import net.minecraft.client.resources.I18n;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.StringTextComponent;
 import net.minecraft.util.text.TranslationTextComponent;
@@ -46,10 +45,9 @@ public class GuiEnterModId extends Screen {
             minecraft.displayGuiScreen(old);
         }));
         int minSize = Math.min(minecraft.getMainWindow().getWidth(), minecraft.getMainWindow().getHeight());
-        //public GuiSlider(GuiPageButtonList.GuiResponder guiResponder, int idIn, int x, int y, String nameIn, float minIn, float maxIn, float defaultValue,
-        // GuiSlider.FormatHelper formatter)
-        size = addButton(new Slider(width / 2 - 100, height / 6 + 80, 16, Math.min(2048, minSize), new TranslationTextComponent("gui.rendersize"),
+        size = addButton(new Slider(width / 2 - 100, height / 6 + 80, 150, 20, new TranslationTextComponent("gui.rendersize"),
               Math.min(oldSize, minSize)));
+        //TODO: Slider min value: 16, Slider max value: Math.min(2048, minSize)
 
         size.setWidth(200);
 
@@ -76,30 +74,31 @@ public class GuiEnterModId extends Screen {
     public void render(@Nonnull MatrixStack matrix, int mouseX, int mouseY, float partialTicks) {
         renderBackground(matrix);
         super.render(matrix, mouseX, mouseY, partialTicks);
-        drawCenteredString(matrix, minecraft.fontRenderer, I18n.format("gui.entermodid"), width / 2, height / 6, -1);
+        drawCenteredString(matrix, minecraft.fontRenderer, new TranslationTextComponent("gui.entermodid"), width / 2, height / 6, -1);
         if (minecraft.world == null) {
-            drawCenteredString(matrix, minecraft.fontRenderer, I18n.format("gui.noworld"), width / 2, height / 6 + 30, 0xFF5555);
+            drawCenteredString(matrix, minecraft.fontRenderer, new TranslationTextComponent("gui.noworld"), width / 2, height / 6 + 30, 0xFF5555);
         } else {
             int displayWidth = minecraft.getMainWindow().getWidth();
             int displayHeight = minecraft.getMainWindow().getHeight();
             boolean widthCap = (displayWidth < 2048);
             boolean heightCap = (displayHeight < 2048);
-            String str = null;
+            String translationKey = null;
             if (widthCap && heightCap) {
                 if (displayWidth > displayHeight) {
-                    str = "gui.cappedheight";
+                    translationKey = "gui.cappedheight";
                 } else if (displayWidth == displayHeight) {
-                    str = "gui.cappedboth";
+                    translationKey = "gui.cappedboth";
                 } else { //displayHeight > displayWidth
-                    str = "gui.cappedwidth";
+                    translationKey = "gui.cappedwidth";
                 }
             } else if (widthCap) {
-                str = "gui.cappedwidth";
+                translationKey = "gui.cappedwidth";
             } else if (heightCap) {
-                str = "gui.cappedheight";
+                translationKey = "gui.cappedheight";
             }
-            if (str != null) {
-                drawCenteredString(matrix, minecraft.fontRenderer, I18n.format(str, Math.min(displayHeight, displayWidth)), width / 2, height / 6 + 104, 0xFFFFFF);
+            if (translationKey != null) {
+                drawCenteredString(matrix, minecraft.fontRenderer, new TranslationTextComponent(translationKey, Math.min(displayHeight, displayWidth)),
+                      width / 2, height / 6 + 104, 0xFFFFFF);
             }
         }
         text.renderButton(matrix, mouseX, mouseY, partialTicks);

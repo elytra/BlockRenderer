@@ -28,7 +28,6 @@ import net.minecraft.client.gui.screen.IngameMenuScreen;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.inventory.ContainerScreen;
 import net.minecraft.client.renderer.RenderHelper;
-import net.minecraft.client.resources.I18n;
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.client.util.ITooltipFlag;
 import net.minecraft.client.util.InputMappings;
@@ -101,9 +100,11 @@ public class BlockRenderer {
          * Minecraft renders, as long as we put everything back the way it was.
          */
         if (e.phase == Phase.START) {
+            //TODO: Re-evaluate
+            MatrixStack matrix = new MatrixStack();
             if (pendingBulkRender != null) {
                 // We *must* call render code in pre-render. If we don't, it won't work right.
-                bulkRender(pendingBulkRender, pendingBulkRenderSize);
+                bulkRender(matrix, pendingBulkRender, pendingBulkRenderSize);
                 pendingBulkRender = null;
             }
             if (isKeyDown(bind)) {
@@ -113,40 +114,32 @@ public class BlockRenderer {
                     Slot hovered = null;
                     Screen currentScreen = mc.currentScreen;
                     if (currentScreen instanceof ContainerScreen) {
-                        //TODO: Re-evaluate (if this isn't needed then we don't need the AT)
-                        /*int w = currentScreen.width;
-                        int h = currentScreen.height;
-                        final int x = Mouse.getX() * w / mc.getMainWindow().getWidth();
-                        // OpenGL's Y-zero is at the *bottom* of the window.
-                        // Minecraft's Y-zero is at the top. So, we need to flip it.
-                        final int y = h - Mouse.getY() * h / mc.getMainWindow().getHeight() - 1;
-                        hovered = ((ContainerScreen<?>) currentScreen).getSelectedSlot(x, y);*/
                         hovered = ((ContainerScreen<?>) currentScreen).getSlotUnderMouse();
                     }
 
                     if (Screen.hasControlDown()) {
-                        String modid = null;
+                        String modId = null;
                         if (hovered != null && hovered.getHasStack()) {
-                            modid = hovered.getStack().getItem().getRegistryName().getNamespace();
+                            modId = hovered.getStack().getItem().getRegistryName().getNamespace();
                         }
-                        mc.displayGuiScreen(new GuiEnterModId(mc.currentScreen, modid));
+                        mc.displayGuiScreen(new GuiEnterModId(mc.currentScreen, modId));
                     } else if (currentScreen instanceof ContainerScreen) {
-                        if (hovered != null) {
+                        if (hovered == null) {
+                            mc.ingameGUI.getChatGUI().printChatMessage(new TranslationTextComponent("msg.slot.absent"));
+                        } else {
                             ItemStack is = hovered.getStack();
-                            if (!is.isEmpty()) {
+                            if (is.isEmpty()) {
+                                mc.ingameGUI.getChatGUI().printChatMessage(new TranslationTextComponent("msg.slot.empty"));
+                            } else {
                                 int size = 512;
                                 if (Screen.hasShiftDown()) {
                                     //TODO: Re-evalaute
                                     size = (int) (16 * mc.getMainWindow().getGuiScaleFactor());
                                 }
-                                setUpRenderState(size);
-                                mc.ingameGUI.getChatGUI().printChatMessage(new StringTextComponent(render(is, new File("renders"), true)));
-                                tearDownRenderState();
-                            } else {
-                                mc.ingameGUI.getChatGUI().printChatMessage(new TranslationTextComponent("msg.slot.empty"));
+                                setUpRenderState(matrix, size);
+                                mc.ingameGUI.getChatGUI().printChatMessage(render(matrix, is, new File("renders"), true));
+                                tearDownRenderState(matrix);
                             }
-                        } else {
-                            mc.ingameGUI.getChatGUI().printChatMessage(new TranslationTextComponent("msg.slot.absent"));
                         }
                     } else {
                         mc.ingameGUI.getChatGUI().printChatMessage(new TranslationTextComponent("msg.notcontainer"));
@@ -158,7 +151,7 @@ public class BlockRenderer {
         }
     }
 
-    private void bulkRender(String modidSpec, int size) {
+    private void bulkRender(MatrixStack matrix, String modidSpec, int size) {
         Minecraft.getInstance().displayGuiScreen(new IngameMenuScreen(true));
         Set<String> modIds = Sets.newHashSet();
         for (String str : modidSpec.split(",")) {
@@ -183,44 +176,53 @@ public class BlockRenderer {
         File folder = new File("renders/" + dateFormat.format(new Date()) + "_" + sanitize(modidSpec) + "/");
         long lastUpdate = 0;
         String joined = Joiner.on(", ").join(modIds);
-        setUpRenderState(size);
+        setUpRenderState(matrix, size);
         for (ItemStack is : toRender) {
             if (InputMappings.isKeyDown(Minecraft.getInstance().getMainWindow().getHandle(), GLFW.GLFW_KEY_ESCAPE)) {
                 break;
             }
-            render(is, folder, false);
+            render(matrix, is, folder, false);
             rendered++;
             if (System.currentTimeMillis() - lastUpdate > 33) {
-                tearDownRenderState();
-                renderLoading(I18n.format("gui.rendering", toRender.size(), joined),
-                      I18n.format("gui.progress", rendered, toRender.size(), (toRender.size() - rendered)),
-                      is, (float) rendered / toRender.size());
+                tearDownRenderState(matrix);
+                renderLoading(matrix, new TranslationTextComponent("gui.rendering", toRender.size(), joined),
+                      new TranslationTextComponent("gui.progress", rendered, toRender.size(), (toRender.size() - rendered)), is,
+                      (float) rendered / toRender.size());
                 lastUpdate = System.currentTimeMillis();
-                setUpRenderState(size);
+                setUpRenderState(matrix, size);
             }
         }
         if (rendered >= toRender.size()) {
-            renderLoading(I18n.format("gui.rendered", toRender.size(), Joiner.on(", ").join(modIds)), "", ItemStack.EMPTY, 1);
+            renderLoading(matrix, new TranslationTextComponent("gui.rendered", toRender.size(), Joiner.on(", ").join(modIds)), StringTextComponent.EMPTY,
+                  ItemStack.EMPTY, 1);
         } else {
-            renderLoading(I18n.format("gui.renderCancelled"),
-                  I18n.format("gui.progress", rendered, toRender.size(), (toRender.size() - rendered)),
+            renderLoading(matrix, new TranslationTextComponent("gui.renderCancelled"), new TranslationTextComponent("gui.progress", rendered,
+                        toRender.size(), (toRender.size() - rendered)),
                   ItemStack.EMPTY, (float) rendered / toRender.size());
         }
-        tearDownRenderState();
+        tearDownRenderState(matrix);
         try {
             Thread.sleep(1500);
         } catch (InterruptedException e) {
         }
     }
 
-    private void renderLoading(String title, String subtitle, @Nonnull ItemStack is, float progress) {
+    private static void setupOverlayRendering() {
+        RenderSystem.clear(256, true);
+        RenderSystem.matrixMode(GL11.GL_PROJECTION);
+        RenderSystem.loadIdentity();
+        RenderSystem.ortho(0.0D, Minecraft.getInstance().getMainWindow().getScaledWidth(), Minecraft.getInstance().getMainWindow().getScaledHeight(),
+              0.0D, 1000.0D, 3000.0D);
+        RenderSystem.matrixMode(GL11.GL_MODELVIEW);
+        RenderSystem.loadIdentity();
+        RenderSystem.translatef(0.0F, 0.0F, -2000.0F);
+    }
+
+    private void renderLoading(MatrixStack matrix, ITextComponent title, ITextComponent subtitle, @Nonnull ItemStack is, float progress) {
         Minecraft mc = Minecraft.getInstance();
         mc.getFramebuffer().unbindFramebuffer();
-        //TODO: Evaluate
-        MatrixStack matrix = new MatrixStack();
         matrix.push();
-        //TODO: Evaluate
-        //mc.entityRenderer.setupOverlayRendering();
+        setupOverlayRendering();
         int scaledWidth = mc.getMainWindow().getScaledWidth();
         int scaledHeight = mc.getMainWindow().getScaledHeight();
         // Draw the dirt background and status text...
@@ -278,10 +280,12 @@ public class BlockRenderer {
         mc.getFramebuffer().bindFramebuffer(false);
     }
 
-    private String render(ItemStack is, File folder, boolean includeDateInFilename) {
+    private ITextComponent render(MatrixStack matrix, ItemStack is, File folder, boolean includeDateInFilename) {
         Minecraft mc = Minecraft.getInstance();
         String filename = (includeDateInFilename ? dateFormat.format(new Date()) + "_" : "") + sanitize(is.getDisplayName().getString());
         RenderSystem.pushMatrix();
+        //TODO: Evaluate
+        RenderSystem.multMatrix(matrix.getLast().getMatrix());
         RenderSystem.clearColor(0, 0, 0, 0);
         RenderSystem.clear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT, Minecraft.IS_RUNNING_ON_MAC);
         mc.getItemRenderer().renderItemAndEffectIntoGUI(is, 0, 0);
@@ -305,17 +309,18 @@ public class BlockRenderer {
             Files.createParentDirs(f);
             f.createNewFile();
             ImageIO.write(img, "PNG", f);
-            return I18n.format("msg.render.success", f.getPath());
+            return new TranslationTextComponent("msg.render.success", f.getPath());
         } catch (Exception ex) {
             ex.printStackTrace();
-            return I18n.format("msg.render.fail");
+            return new TranslationTextComponent("msg.render.fail");
         }
     }
 
     private int size;
     private float oldZLevel;
 
-    private void setUpRenderState(int desiredSize) {
+    private void setUpRenderState(MatrixStack matrix, int desiredSize) {
+        matrix.push();
         Minecraft mc = Minecraft.getInstance();
         /*
          * As we render to the back-buffer, we need to cap our render size
@@ -326,8 +331,7 @@ public class BlockRenderer {
         size = Math.min(Math.min(mc.getMainWindow().getHeight(), mc.getMainWindow().getWidth()), desiredSize);
 
         // Switches from 3D to 2D
-        //TODO: Evaluate
-        //mc.entityRenderer.setupOverlayRendering();
+        setupOverlayRendering();
         RenderHelper.enableStandardItemLighting();
         /*
          * The GUI scale affects us due to the call to setupOverlayRendering
@@ -335,10 +339,10 @@ public class BlockRenderer {
          * render. We could manually switch to orthogonal mode, but it's just
          * more convenient to leverage setupOverlayRendering.
          */
-        double scale = size / (16 * mc.getMainWindow().getGuiScaleFactor());
-        RenderSystem.translated(0, 0, -(scale * 100));
+        float scale = (float) (size / (16 * mc.getMainWindow().getGuiScaleFactor()));
+        matrix.translate(0, 0, -(scale * 100));
 
-        RenderSystem.scaled(scale, scale, scale);
+        matrix.scale(scale, scale, scale);
 
         oldZLevel = mc.getItemRenderer().zLevel;
         mc.getItemRenderer().zLevel = -50;
@@ -352,13 +356,14 @@ public class BlockRenderer {
         RenderSystem.disableAlphaTest();
     }
 
-    private void tearDownRenderState() {
+    private void tearDownRenderState(MatrixStack matrix) {
         RenderSystem.disableLighting();
         RenderSystem.disableColorMaterial();
         RenderSystem.disableDepthTest();
         RenderSystem.disableBlend();
 
         Minecraft.getInstance().getItemRenderer().zLevel = oldZLevel;
+        matrix.pop();
     }
 
     private String sanitize(String str) {
