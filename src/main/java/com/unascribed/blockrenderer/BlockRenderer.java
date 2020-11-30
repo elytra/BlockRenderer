@@ -6,6 +6,7 @@ import com.google.common.io.Files;
 import com.mojang.blaze3d.platform.GlStateManager.DestFactor;
 import com.mojang.blaze3d.platform.GlStateManager.SourceFactor;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.datafixers.util.Pair;
 import java.awt.Graphics2D;
 import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
@@ -20,6 +21,10 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import javax.imageio.ImageIO;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screen.IngameMenuScreen;
@@ -35,6 +40,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.util.NonNullList;
 import net.minecraft.util.RegistryKey;
 import net.minecraft.util.Util;
+import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.TranslationTextComponent;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.TickEvent.Phase;
@@ -129,18 +135,7 @@ public class BlockRenderer {
                                 if (Screen.hasShiftDown()) {
                                     size = (int) (16 * mc.getMainWindow().getGuiScaleFactor());
                                 }
-                                setUpRenderState(mc, size);
-                                RenderSystem.clearColor(0, 0, 0, 0);
-                                RenderSystem.clear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT, Minecraft.IS_RUNNING_ON_MAC);
-                                mc.getItemRenderer().renderItemAndEffectIntoGUI(stack, 0, 0);
-                                try {
-                                    File f = createSavingFuture(readPixels(size, size), stack, new File("renders"), true).get();
-                                    mc.ingameGUI.getChatGUI().printChatMessage(new TranslationTextComponent("msg.render.success", f.getPath()));
-                                } catch (InterruptedException | ExecutionException ex) {
-                                    ex.printStackTrace();
-                                    mc.ingameGUI.getChatGUI().printChatMessage(new TranslationTextComponent("msg.render.fail"));
-                                }
-                                tearDownRenderState();
+                                mc.ingameGUI.getChatGUI().printChatMessage(render(mc, stack, size, new File("renders"), true));
                             }
                         }
                     } else {
@@ -177,31 +172,19 @@ public class BlockRenderer {
             }
         }
         File folder = new File("renders/" + dateFormat.format(new Date()) + "_" + sanitize(modidSpec) + "/");
-        List<CompletableFuture<File>> futures = new ArrayList<>();
-        //TODO: Allow early exiting?
-        //Setup the render state once, render all the items, and then queue it for saving
-        setUpRenderState(mc, size);
-        for (ItemStack stack : toRender) {
-            RenderSystem.clearColor(0, 0, 0, 0);
-            RenderSystem.clear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT, Minecraft.IS_RUNNING_ON_MAC);
-            mc.getItemRenderer().renderItemAndEffectIntoGUI(stack, 0, 0);
-            BufferedImage image = readPixels(size, size);
-            futures.add(createSavingFuture(image, stack, folder, false));
+        List<CompletableFuture<Void>> futures = new ArrayList<>();
+        //Create futures for generating and saving the images for each item
+        // we split our items to render into batches, and then delay each batch
+        // by batchIndex + 1. This allows us to have our progress bar properly
+        // render instead of us freezing the game trying to render all the items
+        // during a single tick
+        //TODO: Experiment with the batch size more
+        List<List<ItemStack>> batchedLists = Lists.partition(toRender, 5);
+        for (int batchIndex = 0, batchedCount = batchedLists.size(); batchIndex < batchedCount; batchIndex++) {
+            futures.add(createFuture(batchedLists.get(batchIndex), size, folder, false, batchIndex + 1));
         }
-        tearDownRenderState();
-        //TODO: Show progress of the above, not just saving?
+        //TODO: Show data on progress screen about which stack is currently being rendered??
         mc.setLoadingGui(new ProgressBarGui(mc, futures));
-    }
-
-    public static void setupOverlayRendering() {
-        RenderSystem.clear(256, true);
-        RenderSystem.matrixMode(GL11.GL_PROJECTION);
-        RenderSystem.loadIdentity();
-        RenderSystem.ortho(0.0D, Minecraft.getInstance().getMainWindow().getScaledWidth(), Minecraft.getInstance().getMainWindow().getScaledHeight(),
-              0.0D, 1000.0D, 3000.0D);
-        RenderSystem.matrixMode(GL11.GL_MODELVIEW);
-        RenderSystem.loadIdentity();
-        RenderSystem.translatef(0.0F, 0.0F, -2000.0F);
     }
 
     private float oldZLevel;
@@ -217,7 +200,14 @@ public class BlockRenderer {
         int size = Math.min(Math.min(mc.getMainWindow().getHeight(), mc.getMainWindow().getWidth()), desiredSize);
 
         // Switches from 3D to 2D
-        setupOverlayRendering();
+        RenderSystem.clear(256, true);
+        RenderSystem.matrixMode(GL11.GL_PROJECTION);
+        RenderSystem.loadIdentity();
+        RenderSystem.ortho(0.0D, Minecraft.getInstance().getMainWindow().getScaledWidth(), Minecraft.getInstance().getMainWindow().getScaledHeight(),
+              0.0D, 1000.0D, 3000.0D);
+        RenderSystem.matrixMode(GL11.GL_MODELVIEW);
+        RenderSystem.loadIdentity();
+        RenderSystem.translatef(0.0F, 0.0F, -2000.0F);
         RenderHelper.enableStandardItemLighting();
         /*
          * The GUI scale affects us due to the call to setupOverlayRendering
@@ -276,33 +266,81 @@ public class BlockRenderer {
         return img;
     }
 
-    private static CompletableFuture<File> createSavingFuture(BufferedImage img, ItemStack stack, File folder, boolean includeDateInFilename) {
+    private ITextComponent render(Minecraft mc, ItemStack stack, int size, File folder, boolean includeDateInFilename) {
+        setUpRenderState(mc, size);
+        RenderSystem.clearColor(0, 0, 0, 0);
+        RenderSystem.clear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT, false);//TODO: Re-evaluate Minecraft.IS_RUNNING_ON_MAC);
+        mc.getItemRenderer().renderItemAndEffectIntoGUI(stack, 0, 0);
+        ITextComponent result;
+        try {
+            //Read image on main thread
+            BufferedImage image = readPixels(size, size);
+            //Save it off thread
+            File file = CompletableFuture.supplyAsync(() -> saveImage(image, stack, folder, includeDateInFilename), Util.getServerExecutor()).get();
+            result = new TranslationTextComponent("msg.render.success", file.getPath());
+        } catch (InterruptedException | ExecutionException ex) {
+            ex.printStackTrace();
+            result = new TranslationTextComponent("msg.render.fail");
+        }
+        tearDownRenderState();
+        return result;
+    }
+
+    private static final ScheduledExecutorService SCHEDULER = new ScheduledThreadPoolExecutor(0);
+
+    private CompletableFuture<Void> createFuture(List<ItemStack> stacks, int size, File folder, boolean includeDateInFilename, int tickDelay) {
+        //TODO: Allow early exiting again?
+        Executor gameExecutor;
+        if (tickDelay == 0) {
+            gameExecutor = Minecraft.getInstance();
+        } else {
+            //TODO: Note about why we delay things
+            gameExecutor = r -> SCHEDULER.schedule(() -> Minecraft.getInstance().execute(r), tickDelay * 50, TimeUnit.MILLISECONDS);
+        }
         return CompletableFuture.supplyAsync(() -> {
-            try {
-                /*
-                 * We need to flip the image over here, because again, GL Y-zero is
-                 * the bottom, so it's "Y-up". Minecraft's Y-zero is the top, so it's
-                 * "Y-down". Since readPixels is Y-up, our Y-down render is flipped.
-                 * It's easier to do this operation on the resulting image than to
-                 * do it with GL transforms. Not faster, just easier.
-                 */
-                BufferedImage flipped = createFlipped(img);
-                String fileName = (includeDateInFilename ? dateFormat.format(new Date()) + "_" : "") + sanitize(stack.getDisplayName().getString());
-                File f = new File(folder, fileName + ".png");
-                int i = 2;
-                while (f.exists()) {
-                    f = new File(folder, fileName + "_" + i + ".png");
-                    i++;
-                }
-                Files.createParentDirs(f);
-                f.createNewFile();
-                ImageIO.write(flipped, "PNG", f);
-                return f;
-            } catch (Exception e) {
-                e.printStackTrace();
-                return null;
+            //TODO: Note we batch render state for our sub-batch
+            setUpRenderState(Minecraft.getInstance(), size);
+            List<Pair<ItemStack, BufferedImage>> images = new ArrayList<>();
+            for (ItemStack stack : stacks) {
+                RenderSystem.clearColor(0, 0, 0, 0);
+                RenderSystem.clear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT, false);//TODO: Re-evaluate Minecraft.IS_RUNNING_ON_MAC);
+                Minecraft.getInstance().getItemRenderer().renderItemAndEffectIntoGUI(stack, 0, 0);
+                images.add(Pair.of(stack, readPixels(size, size)));
+            }
+            tearDownRenderState();
+            return images;
+        }, gameExecutor).thenAcceptAsync(images -> {
+            for (Pair<ItemStack, BufferedImage> image : images) {
+                saveImage(image.getSecond(), image.getFirst(), folder, includeDateInFilename);
             }
         }, Util.getServerExecutor());
+    }
+
+    private static File saveImage(BufferedImage image, ItemStack stack, File folder, boolean includeDateInFilename) {
+        try {
+            /*
+             * We need to flip the image over here, because again, GL Y-zero is
+             * the bottom, so it's "Y-up". Minecraft's Y-zero is the top, so it's
+             * "Y-down". Since readPixels is Y-up, our Y-down render is flipped.
+             * It's easier to do this operation on the resulting image than to
+             * do it with GL transforms. Not faster, just easier.
+             */
+            BufferedImage flipped = createFlipped(image);
+            String fileName = (includeDateInFilename ? dateFormat.format(new Date()) + "_" : "") + sanitize(stack.getDisplayName().getString());
+            File f = new File(folder, fileName + ".png");
+            int i = 2;
+            while (f.exists()) {
+                f = new File(folder, fileName + "_" + i + ".png");
+                i++;
+            }
+            Files.createParentDirs(f);
+            f.createNewFile();
+            ImageIO.write(flipped, "PNG", f);
+            return f;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
     }
 
     private static BufferedImage createFlipped(BufferedImage image) {

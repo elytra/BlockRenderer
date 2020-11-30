@@ -1,6 +1,5 @@
 package com.unascribed.blockrenderer;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -20,12 +19,12 @@ public class AsyncItemRenderer implements IAsyncReloader {
 
     protected final CompletableFuture<Unit> allAsyncCompleted = new CompletableFuture<>();
     protected final CompletableFuture<List<Void>> resultListFuture;
-    private final Set<CompletableFuture<File>> taskSet;
+    private final Set<CompletableFuture<Void>> taskSet;
     private final int taskCount;
     private final AtomicInteger asyncScheduled = new AtomicInteger();
     private final AtomicInteger asyncCompleted = new AtomicInteger();
 
-    public AsyncItemRenderer(List<CompletableFuture<File>> futures) {
+    public AsyncItemRenderer(List<CompletableFuture<Void>> futures) {
         taskCount = futures.size();
         taskSet = new HashSet<>(futures);
         asyncScheduled.incrementAndGet();
@@ -33,7 +32,7 @@ public class AsyncItemRenderer implements IAsyncReloader {
         alsoWaitedFor.thenRun(asyncCompleted::incrementAndGet);
         List<CompletableFuture<Void>> list = new ArrayList<>();
         CompletableFuture<?> waitFor = alsoWaitedFor;
-        for (CompletableFuture<File> future : futures) {
+        for (CompletableFuture<Void> future : futures) {
             final CompletableFuture<?> finalWaitFor = waitFor;
             CompletableFuture<Void> stateFuture = future.thenCompose(backgroundResult -> {
                 Minecraft.getInstance().execute(() -> {

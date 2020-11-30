@@ -4,7 +4,6 @@ import com.mojang.blaze3d.matrix.MatrixStack;
 import com.mojang.blaze3d.platform.GlStateManager.DestFactor;
 import com.mojang.blaze3d.platform.GlStateManager.SourceFactor;
 import com.mojang.blaze3d.systems.RenderSystem;
-import java.io.File;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
@@ -28,7 +27,7 @@ public class ProgressBarGui extends LoadingGui {
     private long fadeOutStart = -1L;
     private long fadeInStart = -1L;
 
-    public ProgressBarGui(Minecraft mc, List<CompletableFuture<File>> futures) {
+    public ProgressBarGui(Minecraft mc, List<CompletableFuture<Void>> futures) {
         this.mc = mc;
         this.asyncReloader = new AsyncItemRenderer(futures);
     }
