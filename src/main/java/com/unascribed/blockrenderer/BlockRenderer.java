@@ -33,6 +33,7 @@ import net.minecraft.client.util.ITooltipFlag;
 import net.minecraft.client.util.InputMappings;
 import net.minecraft.inventory.container.Slot;
 import net.minecraft.item.Item;
+import net.minecraft.item.ItemGroup;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.NonNullList;
 import net.minecraft.util.RegistryKey;
@@ -44,6 +45,7 @@ import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.TickEvent.Phase;
 import net.minecraftforge.event.TickEvent.RenderTickEvent;
 import net.minecraftforge.eventbus.api.EventPriority;
+import net.minecraftforge.fml.client.gui.GuiUtils;
 import net.minecraftforge.fml.client.registry.ClientRegistry;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.registries.ForgeRegistries;
@@ -100,7 +102,6 @@ public class BlockRenderer {
          * Minecraft renders, as long as we put everything back the way it was.
          */
         if (e.phase == Phase.START) {
-            //TODO: Re-evaluate
             MatrixStack matrix = new MatrixStack();
             if (pendingBulkRender != null) {
                 // We *must* call render code in pre-render. If we don't, it won't work right.
@@ -133,7 +134,6 @@ public class BlockRenderer {
                             } else {
                                 int size = 512;
                                 if (Screen.hasShiftDown()) {
-                                    //TODO: Re-evalaute
                                     size = (int) (16 * mc.getMainWindow().getGuiScaleFactor());
                                 }
                                 setUpRenderState(matrix, size);
@@ -165,10 +165,11 @@ public class BlockRenderer {
             if (wildcard || modIds.contains(entry.getKey().getLocation().getNamespace())) {
                 li.clear();
                 Item item = entry.getValue();
+                ItemGroup group = item.getGroup();
                 try {
-                    item.fillItemGroup(item.getGroup(), li);
+                    item.fillItemGroup(group, li);
                 } catch (Throwable t) {
-                    log.warn("Failed to get renderable items for {}", entry.getKey().getLocation(), t);
+                    log.warn("Failed to get renderable items for {} and group {}", entry.getKey().getLocation(), group, t);
                 }
                 toRender.addAll(li);
             }
@@ -218,6 +219,8 @@ public class BlockRenderer {
         RenderSystem.translatef(0.0F, 0.0F, -2000.0F);
     }
 
+    //TODO: FIXME, this doesn't seem to ever actually render, and throws a bunch of GL_INVALID_OPERATION warnings
+    //TODO: Switch this to using LoadingGui, instead of the dirt background, might be easier to get working again
     private void renderLoading(MatrixStack matrix, ITextComponent title, ITextComponent subtitle, @Nonnull ItemStack is, float progress) {
         Minecraft mc = Minecraft.getInstance();
         mc.getFramebuffer().unbindFramebuffer();
@@ -262,13 +265,12 @@ public class BlockRenderer {
                 }
                 // End copied code.
                 matrix.translate((scaledWidth - width / 2) - 12, scaledHeight + 30, 0);
-                Rendering.drawHoveringText(matrix, list, 0, 0, font);
+                GuiUtils.drawHoveringText(matrix, list, 0, 0, scaledWidth, scaledHeight, -1, font);
             } catch (Throwable t) {
             }
         }
         matrix.pop();
         matrix.pop();
-        //TODO: Validate - mc.updateDisplay();
         mc.getMainWindow().update();
 
         /*
@@ -284,7 +286,6 @@ public class BlockRenderer {
         Minecraft mc = Minecraft.getInstance();
         String filename = (includeDateInFilename ? dateFormat.format(new Date()) + "_" : "") + sanitize(is.getDisplayName().getString());
         RenderSystem.pushMatrix();
-        //TODO: Evaluate
         RenderSystem.multMatrix(matrix.getLast().getMatrix());
         RenderSystem.clearColor(0, 0, 0, 0);
         RenderSystem.clear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT, Minecraft.IS_RUNNING_ON_MAC);
@@ -418,5 +419,4 @@ public class BlockRenderer {
         g.dispose();
         return newImage;
     }
-
 }

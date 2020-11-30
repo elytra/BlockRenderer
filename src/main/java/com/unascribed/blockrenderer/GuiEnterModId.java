@@ -10,6 +10,7 @@ import net.minecraft.client.gui.widget.button.Button;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.StringTextComponent;
 import net.minecraft.util.text.TranslationTextComponent;
+import org.lwjgl.glfw.GLFW;
 
 public class GuiEnterModId extends Screen {
 
@@ -17,6 +18,7 @@ public class GuiEnterModId extends Screen {
     private TextFieldWidget text;
     private Slider size;
     private Screen old;
+    private Button renderButton;
 
     public GuiEnterModId(Screen old, String prefill) {
         super(StringTextComponent.EMPTY);
@@ -37,7 +39,7 @@ public class GuiEnterModId extends Screen {
         addButton(new Button(width / 2 - 100, height / 6 + 120, 98, 20, new TranslationTextComponent("gui.cancel"),
               button -> minecraft.displayGuiScreen(old)));
 
-        Button render = addButton(new Button(width / 2 + 2, height / 6 + 120, 98, 20, new TranslationTextComponent("gui.render"), button -> {
+        renderButton = addButton(new Button(width / 2 + 2, height / 6 + 120, 98, 20, new TranslationTextComponent("gui.render"), button -> {
             if (minecraft.world != null) {
                 BlockRenderer.inst.pendingBulkRender = text.getText();
                 BlockRenderer.inst.pendingBulkRenderSize = round(size.getSliderValue());
@@ -54,7 +56,7 @@ public class GuiEnterModId extends Screen {
         text.setFocused2(true);
         text.setCanLoseFocus(false);
         boolean enabled = minecraft.world != null;
-        render.active = enabled;
+        renderButton.active = enabled;
         text.setEnabled(enabled);
         size.active = enabled;
     }
@@ -112,8 +114,12 @@ public class GuiEnterModId extends Screen {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        //TODO: Re-evaluate
-        if (text.canWrite()) {
+        if (text.canWrite() && keyCode != GLFW.GLFW_KEY_ESCAPE) {//Manually handle hitting escape to make the whole interface go away
+            if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
+                //Handle processing both the enter key and the numpad enter key
+                renderButton.onPress();
+                return true;
+            }
             return text.keyPressed(keyCode, scanCode, modifiers);
         }
         return super.keyPressed(keyCode, scanCode, modifiers);
@@ -121,7 +127,6 @@ public class GuiEnterModId extends Screen {
 
     @Override
     public boolean charTyped(char c, int keyCode) {
-        //TODO: Re-evaluate
         if (text.canWrite()) {
             return text.charTyped(c, keyCode);
         }
