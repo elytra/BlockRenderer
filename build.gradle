@@ -105,7 +105,7 @@ task replaceResources(type: Copy) {
     outputs.upToDateWhen { false }
     from(sourceSets.main.resources) {
         include "META-INF/mods.toml"
-        expand "version"       : mod_version, "mc_version": minecraft_version_range, "forge_version": forge_version_range, "loader_version": loader_version_range
+        expand "version": mod_version, "mc_version": minecraft_version_range, "forge_version": forge_version_range, "loader_version": loader_version_range
     }
     into "$buildDir/resources/main/"
 }

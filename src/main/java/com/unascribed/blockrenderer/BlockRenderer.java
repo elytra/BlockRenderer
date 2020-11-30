@@ -129,7 +129,7 @@ public class BlockRenderer {
                                 if (Screen.hasShiftDown()) {
                                     size = (int) (16 * mc.getMainWindow().getGuiScaleFactor());
                                 }
-                                setUpRenderState(size);
+                                setUpRenderState(mc, size);
                                 RenderSystem.clearColor(0, 0, 0, 0);
                                 RenderSystem.clear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT, Minecraft.IS_RUNNING_ON_MAC);
                                 mc.getItemRenderer().renderItemAndEffectIntoGUI(stack, 0, 0);
@@ -180,7 +180,7 @@ public class BlockRenderer {
         List<CompletableFuture<File>> futures = new ArrayList<>();
         //TODO: Allow early exiting?
         //Setup the render state once, render all the items, and then queue it for saving
-        setUpRenderState(size);
+        setUpRenderState(mc, size);
         for (ItemStack stack : toRender) {
             RenderSystem.clearColor(0, 0, 0, 0);
             RenderSystem.clear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT, Minecraft.IS_RUNNING_ON_MAC);
@@ -206,9 +206,8 @@ public class BlockRenderer {
 
     private float oldZLevel;
 
-    private void setUpRenderState(int desiredSize) {
+    private void setUpRenderState(Minecraft mc, int desiredSize) {
         RenderSystem.pushMatrix();
-        Minecraft mc = Minecraft.getInstance();
         /*
          * As we render to the back-buffer, we need to cap our render size
          * to be within the window's bounds. If we didn't do this, the results
@@ -257,7 +256,7 @@ public class BlockRenderer {
         return str.replaceAll("[^A-Za-z0-9-_ ]", "_");
     }
 
-    private BufferedImage readPixels(int width, int height) {
+    private static BufferedImage readPixels(int width, int height) {
         /*
          * Make sure we're reading from the back buffer, not the front buffer.
          * The front buffer is what is currently on-screen, and is useful for
