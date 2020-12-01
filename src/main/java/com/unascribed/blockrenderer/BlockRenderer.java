@@ -1,5 +1,6 @@
 package com.unascribed.blockrenderer;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.io.Files;
@@ -61,17 +62,18 @@ import org.lwjgl.opengl.GL12;
 public class BlockRenderer {
 
     private static final ScheduledExecutorService SCHEDULER = new ScheduledThreadPoolExecutor(0);
+    private static final DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd_HH.mm.ss");
+
+    public static final Logger log = LogManager.getLogger("BlockRenderer");
     public static final String MODID = "blockrenderer";
 
     public static BlockRenderer inst;
 
     protected KeyBinding bind;
     protected boolean down = false;
-    protected static final DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd_HH.mm.ss");
     protected String pendingBulkRender;
     protected int pendingBulkRenderSize;
-
-    protected final Logger log = LogManager.getLogger("BlockRenderer");
+    private float oldZLevel;
 
     public BlockRenderer() {
         inst = this;
@@ -178,6 +180,7 @@ public class BlockRenderer {
             }
         }
         File folder = new File("renders/" + dateFormat.format(new Date()) + "_" + sanitize(modidSpec) + "/");
+        ProgressBarGui progressBar = new ProgressBarGui(mc, toRender.size(), Joiner.on(", ").join(modIds));
         List<CompletableFuture<Void>> futures = new ArrayList<>();
         //Create futures for generating and saving the images for each item
         // we split our items to render into batches, and then delay each batch
@@ -186,12 +189,11 @@ public class BlockRenderer {
         // during a single tick
         List<List<ItemStack>> batchedLists = Lists.partition(toRender, 7);
         for (int batchIndex = 0, batchedCount = batchedLists.size(); batchIndex < batchedCount; batchIndex++) {
-            futures.add(createFuture(batchedLists.get(batchIndex), size, folder, false, batchIndex + 1));
+            futures.add(createFuture(batchedLists.get(batchIndex), size, folder, false, batchIndex + 1, progressBar));
         }
-        mc.setLoadingGui(new ProgressBarGui(mc, futures));
+        progressBar.setFutures(futures);
+        mc.setLoadingGui(progressBar);
     }
-
-    private float oldZLevel;
 
     private void setUpRenderState(Minecraft mc, int desiredSize) {
         RenderSystem.pushMatrix();
@@ -242,23 +244,6 @@ public class BlockRenderer {
         RenderSystem.popMatrix();
     }
 
-    private static String sanitize(String str) {
-        return str.replaceAll("[^A-Za-z0-9-_ ]", "_");
-    }
-
-    private static BufferedImage readPixels(int width, int height) {
-        //Allocate a native data array to fit our pixels
-        ByteBuffer buf = BufferUtils.createByteBuffer(width * height * 4);
-        //And finally read the pixel data from the GPU...
-        RenderSystem.readPixels(0, Minecraft.getInstance().getMainWindow().getHeight() - height, width, height, GL12.GL_BGRA, GL11.GL_UNSIGNED_BYTE, buf);
-        //...and turn it into a Java object we can do things to.
-        BufferedImage img = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
-        int[] pixels = new int[width * height];
-        buf.asIntBuffer().get(pixels);
-        img.setRGB(0, 0, width, height, pixels, 0, width);
-        return img;
-    }
-
     private ITextComponent render(Minecraft mc, ItemStack stack, int size, File folder, boolean includeDateInFilename) {
         //Draw and read image on main thread
         setUpRenderState(mc, size);
@@ -277,7 +262,7 @@ public class BlockRenderer {
         }
     }
 
-    private CompletableFuture<Void> createFuture(List<ItemStack> stacks, int size, File folder, boolean includeDateInFilename, int tickDelay) {
+    private CompletableFuture<Void> createFuture(List<ItemStack> stacks, int size, File folder, boolean includeDateInFilename, int tickDelay, ProgressBarGui progressBar) {
         //TODO: Allow early exiting again?
         Executor gameExecutor;
         if (tickDelay == 0) {
@@ -299,6 +284,8 @@ public class BlockRenderer {
                 RenderSystem.clear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT, Minecraft.IS_RUNNING_ON_MAC);
                 Minecraft.getInstance().getItemRenderer().renderItemAndEffectIntoGUI(stack, 0, 0);
                 images.add(Pair.of(stack, readPixels(size, size)));
+                //Update the progress bar
+                progressBar.update();
             }
             tearDownRenderState();
             return images;
@@ -333,6 +320,23 @@ public class BlockRenderer {
             e.printStackTrace();
             return null;
         }
+    }
+
+    private static String sanitize(String str) {
+        return str.replaceAll("[^A-Za-z0-9-_ ]", "_");
+    }
+
+    private static BufferedImage readPixels(int width, int height) {
+        //Allocate a native data array to fit our pixels
+        ByteBuffer buf = BufferUtils.createByteBuffer(width * height * 4);
+        //And finally read the pixel data from the GPU...
+        RenderSystem.readPixels(0, Minecraft.getInstance().getMainWindow().getHeight() - height, width, height, GL12.GL_BGRA, GL11.GL_UNSIGNED_BYTE, buf);
+        //...and turn it into a Java object we can do things to.
+        BufferedImage img = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+        int[] pixels = new int[width * height];
+        buf.asIntBuffer().get(pixels);
+        img.setRGB(0, 0, width, height, pixels, 0, width);
+        return img;
     }
 
     private static BufferedImage createFlipped(BufferedImage image) {
