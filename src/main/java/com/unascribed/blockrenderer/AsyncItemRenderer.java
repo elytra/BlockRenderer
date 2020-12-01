@@ -17,8 +17,8 @@ import net.minecraft.util.Util;
  */
 public class AsyncItemRenderer implements IAsyncReloader {
 
-    protected final CompletableFuture<Unit> allAsyncCompleted = new CompletableFuture<>();
-    protected final CompletableFuture<List<Void>> resultListFuture;
+    private final CompletableFuture<Unit> allAsyncCompleted = new CompletableFuture<>();
+    private final CompletableFuture<List<Void>> resultListFuture;
     private final Set<CompletableFuture<Void>> taskSet;
     private final int taskCount;
     private final AtomicInteger asyncScheduled = new AtomicInteger();

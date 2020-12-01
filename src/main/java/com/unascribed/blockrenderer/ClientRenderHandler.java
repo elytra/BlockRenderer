@@ -67,7 +67,7 @@ public class ClientRenderHandler {
     private float oldZLevel;
 
     public ClientRenderHandler() {
-        bind = new KeyBinding("key.render", GLFW.GLFW_KEY_GRAVE_ACCENT, "key.categories.blockrenderer");
+        bind = new KeyBinding("key.blockrenderer.render", GLFW.GLFW_KEY_GRAVE_ACCENT, "key.blockrenderer.category");
         ClientRegistry.registerKeyBinding(bind);
         MinecraftForge.EVENT_BUS.addListener(EventPriority.HIGHEST, this::onFrameStart);
     }
@@ -86,6 +86,10 @@ public class ClientRenderHandler {
                 if (!down) {
                     down = true;
                     Minecraft mc = Minecraft.getInstance();
+                    if (mc.world == null) {
+                        mc.ingameGUI.getChatGUI().printChatMessage(new TranslationTextComponent("msg.blockrenderer.no_world"));
+                        return;
+                    }
                     Slot hovered = null;
                     Screen currentScreen = mc.currentScreen;
                     if (currentScreen instanceof ContainerScreen) {
@@ -93,20 +97,18 @@ public class ClientRenderHandler {
                     }
 
                     if (Screen.hasControlDown()) {
-                        if (mc.world != null) {
-                            String modId = null;
-                            if (hovered != null && hovered.getHasStack()) {
-                                modId = hovered.getStack().getItem().getRegistryName().getNamespace();
-                            }
-                            mc.displayGuiScreen(new GuiEnterModId(mc.currentScreen, modId));
+                        String modId = null;
+                        if (hovered != null && hovered.getHasStack()) {
+                            modId = hovered.getStack().getItem().getRegistryName().getNamespace();
                         }
+                        mc.displayGuiScreen(new GuiEnterModId(mc.currentScreen, modId));
                     } else if (currentScreen instanceof ContainerScreen) {
                         if (hovered == null) {
-                            mc.ingameGUI.getChatGUI().printChatMessage(new TranslationTextComponent("msg.slot.absent"));
+                            mc.ingameGUI.getChatGUI().printChatMessage(new TranslationTextComponent("msg.blockrenderer.slot.absent"));
                         } else {
                             ItemStack stack = hovered.getStack();
                             if (stack.isEmpty()) {
-                                mc.ingameGUI.getChatGUI().printChatMessage(new TranslationTextComponent("msg.slot.empty"));
+                                mc.ingameGUI.getChatGUI().printChatMessage(new TranslationTextComponent("msg.blockrenderer.slot.empty"));
                             } else {
                                 int size = 512;
                                 if (Screen.hasShiftDown()) {
@@ -116,7 +118,7 @@ public class ClientRenderHandler {
                             }
                         }
                     } else {
-                        mc.ingameGUI.getChatGUI().printChatMessage(new TranslationTextComponent("msg.notcontainer"));
+                        mc.ingameGUI.getChatGUI().printChatMessage(new TranslationTextComponent("msg.blockrenderer.not_container"));
                     }
                 }
             } else {
@@ -229,15 +231,14 @@ public class ClientRenderHandler {
         try {
             //And then save the image off thread
             File file = CompletableFuture.supplyAsync(() -> saveImage(image, stack, folder, includeDateInFilename), Util.getServerExecutor()).get();
-            return new TranslationTextComponent("msg.render.success", file.getPath());
+            return new TranslationTextComponent("msg.blockrenderer.render.success", file.getPath());
         } catch (InterruptedException | ExecutionException ex) {
             ex.printStackTrace();
-            return new TranslationTextComponent("msg.render.fail");
+            return new TranslationTextComponent("msg.blockrenderer.render.fail");
         }
     }
 
     private CompletableFuture<Void> createFuture(List<ItemStack> stacks, int size, File folder, boolean includeDateInFilename, int tickDelay, ProgressBarGui progressBar) {
-        //TODO: Allow early exiting again?
         Executor gameExecutor;
         if (tickDelay == 0) {
             gameExecutor = Minecraft.getInstance();
@@ -259,7 +260,7 @@ public class ClientRenderHandler {
                 Minecraft.getInstance().getItemRenderer().renderItemAndEffectIntoGUI(stack, 0, 0);
                 images.add(Pair.of(stack, readPixels(size, size)));
                 //Update the progress bar
-                progressBar.update();
+                progressBar.update(stack);
             }
             tearDownRenderState();
             return images;

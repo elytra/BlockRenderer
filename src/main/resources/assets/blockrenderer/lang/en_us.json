@@ -1,28 +1,29 @@
 {
-  "key.render": "Render",
-  "key.categories.blockrenderer": "BlockRenderer",
+  "key.blockrenderer.render": "Render",
+  "key.blockrenderer.category": "BlockRenderer",
 
-  "msg.render.fail": "Rendering failed, see game output for details",
-  "msg.render.success": "Successfully rendered to %s",
+  "msg.blockrenderer.render.fail": "Rendering failed, see game output for details.",
+  "msg.blockrenderer.render.success": "Successfully rendered to %s.",
 
-  "msg.slot.empty": "That slot has no item",
-  "msg.slot.absent": "There's no slot there",
-  "msg.notcontainer": "Can't find an item to render",
+  "msg.blockrenderer.slot.empty": "That slot has no item.",
+  "msg.blockrenderer.slot.absent": "There's no slot there.",
+  "msg.blockrenderer.not_container": "Can't find an item to render.",
+  "msg.blockrenderer.no_world": "You must be in a world to render items.",
+  "msg.blockrenderer.rendered": "Rendered %1$s items from %2$s in %3$s ms.",
 
-  "gui.entermodid": "Enter Mod ID",
-  "gui.noworld": "You must be in a world to render items",
+  "gui.blockrenderer.enter_modid": "Enter Mod ID",
 
-  "gui.cappedboth": "(Capped at %1$dx%1$d due to your window width and height)",
-  "gui.cappedheight": "(Capped at %1$dx%1$d due to your window height)",
-  "gui.cappedwidth": "(Capped at %1$dx%1$d due to your window width)",
-  "gui.selected_dimensions": "%1$dx%1$d",
+  "gui.blockrenderer.capped_both": "(Capped at %1$dx%1$d due to your window width and height)",
+  "gui.blockrenderer.capped_height": "(Capped at %1$dx%1$d due to your window height)",
+  "gui.blockrenderer.capped_width": "(Capped at %1$dx%1$d due to your window width)",
+  "gui.blockrenderer.selected_dimensions": "%1$dx%1$d",
 
-  "gui.cancel": "Cancel",
-  "gui.render": "Render",
-  "gui.rendersize": "Size",
+  "gui.blockrenderer.cancel": "Cancel",
+  "gui.blockrenderer.render": "Render",
+  "gui.blockrenderer.render_size": "Size",
 
-  "gui.rendering": "Rendering %1$s items from %2$s",
-  "gui.rendered": "Rendered %1$s items from %2$s",
-  "gui.renderCancelled": "Operation cancelled",
-  "gui.progress": "(%1$s/%2$s, %3$s to go)"
+  "gui.blockrenderer.rendering": "Rendering %1$s items from %2$s",
+  "gui.blockrenderer.rendered": "Rendered %1$s items from %2$s",
+  "gui.blockrenderer.render_cancelled": "Operation cancelled",
+  "gui.blockrenderer.progress": "(%1$s/%2$s, %3$s to go)"
 }

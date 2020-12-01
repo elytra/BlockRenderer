@@ -44,12 +44,12 @@ public class GuiEnterModId extends Screen {
         text = new TextFieldWidget(font, width / 2 - 100, height / 6 + 50, 200, 20, StringTextComponent.EMPTY);
         text.setText(prefill);
 
-        addButton(new Button(width / 2 - 100, height / 6 + 120, 98, 20, new TranslationTextComponent("gui.cancel"),
+        addButton(new Button(width / 2 - 100, height / 6 + 120, 98, 20, new TranslationTextComponent("gui.blockrenderer.cancel"),
               button -> minecraft.displayGuiScreen(old)));
 
-        addButton(new Button(width / 2 + 2, height / 6 + 120, 98, 20, new TranslationTextComponent("gui.render"), button -> render()));
-        slider = addButton(new Slider(width / 2 - 100, height / 6 + 80, 200, 20, new TranslationTextComponent("gui.rendersize"), sliderValue,
-              16, getSliderMax()));
+        addButton(new Button(width / 2 + 2, height / 6 + 120, 98, 20, new TranslationTextComponent("gui.blockrenderer.render"), button -> render()));
+        slider = addButton(new Slider(width / 2 - 100, height / 6 + 80, 200, 20, new TranslationTextComponent("gui.blockrenderer.render_size"),
+              sliderValue, 16, getSliderMax()));
 
         text.setFocused2(true);
         text.setCanLoseFocus(false);
@@ -74,32 +74,28 @@ public class GuiEnterModId extends Screen {
     public void render(@Nonnull MatrixStack matrix, int mouseX, int mouseY, float partialTicks) {
         renderBackground(matrix);
         super.render(matrix, mouseX, mouseY, partialTicks);
-        drawCenteredString(matrix, minecraft.fontRenderer, new TranslationTextComponent("gui.entermodid"), width / 2, height / 6, -1);
-        if (minecraft.world == null) {
-            drawCenteredString(matrix, minecraft.fontRenderer, new TranslationTextComponent("gui.noworld"), width / 2, height / 6 + 30, 0xFF5555);
-        } else {
-            int displayWidth = minecraft.getMainWindow().getWidth();
-            int displayHeight = minecraft.getMainWindow().getHeight();
-            boolean widthCap = (displayWidth < 2048);
-            boolean heightCap = (displayHeight < 2048);
-            String translationKey = null;
-            if (widthCap && heightCap) {
-                if (displayWidth > displayHeight) {
-                    translationKey = "gui.cappedheight";
-                } else if (displayWidth == displayHeight) {
-                    translationKey = "gui.cappedboth";
-                } else { //displayHeight > displayWidth
-                    translationKey = "gui.cappedwidth";
-                }
-            } else if (widthCap) {
-                translationKey = "gui.cappedwidth";
-            } else if (heightCap) {
-                translationKey = "gui.cappedheight";
+        drawCenteredString(matrix, minecraft.fontRenderer, new TranslationTextComponent("gui.blockrenderer.enter_modid"), width / 2, height / 6, -1);
+        int displayWidth = minecraft.getMainWindow().getWidth();
+        int displayHeight = minecraft.getMainWindow().getHeight();
+        boolean widthCap = (displayWidth < 2048);
+        boolean heightCap = (displayHeight < 2048);
+        String translationKey = null;
+        if (widthCap && heightCap) {
+            if (displayWidth > displayHeight) {
+                translationKey = "gui.blockrenderer.capped_height";
+            } else if (displayWidth == displayHeight) {
+                translationKey = "gui.blockrenderer.capped_both";
+            } else { //displayHeight > displayWidth
+                translationKey = "gui.blockrenderer.capped_width";
             }
-            if (translationKey != null) {
-                drawCenteredString(matrix, minecraft.fontRenderer, new TranslationTextComponent(translationKey, Math.min(displayHeight, displayWidth)),
-                      width / 2, height / 6 + 104, 0xFFFFFF);
-            }
+        } else if (widthCap) {
+            translationKey = "gui.blockrenderer.capped_width";
+        } else if (heightCap) {
+            translationKey = "gui.blockrenderer.capped_height";
+        }
+        if (translationKey != null) {
+            drawCenteredString(matrix, minecraft.fontRenderer, new TranslationTextComponent(translationKey, Math.min(displayHeight, displayWidth)),
+                  width / 2, height / 6 + 104, 0xFFFFFF);
         }
         text.renderButton(matrix, mouseX, mouseY, partialTicks);
     }
@@ -175,7 +171,7 @@ public class GuiEnterModId extends Screen {
 
         @Override
         protected void func_230979_b_() {
-            setMessage(new TranslationTextComponent("gui.selected_dimensions", round(GuiEnterModId.this.sliderValue)));
+            setMessage(new TranslationTextComponent("gui.blockrenderer.selected_dimensions", round(GuiEnterModId.this.sliderValue)));
         }
 
         private double denormalizeValue() {
