@@ -28,6 +28,7 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import javax.imageio.ImageIO;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.LoadingGui;
 import net.minecraft.client.gui.screen.IngameMenuScreen;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.inventory.ContainerScreen;
@@ -77,6 +78,13 @@ public class ClientRenderHandler {
         // /not/ on the screen. As such, we are free to do whatever we like before
         // Minecraft renders, as long as we put everything back the way it was.
         if (e.phase == Phase.START) {
+            Minecraft mc = Minecraft.getInstance();
+            LoadingGui loadingGui = mc.getLoadingGui();
+            if (loadingGui instanceof ProgressBarGui && InputMappings.isKeyDown(Minecraft.getInstance().getMainWindow().getHandle(), GLFW.GLFW_KEY_ESCAPE)) {
+                //If we are currently rendering our progress bar and the user hit escapes, cancel the bulk rendering
+                ((ProgressBarGui) loadingGui).cancel();
+                return;
+            }
             if (pendingBulkRender != null) {
                 //We *must* call render code in pre-render. If we don't, it won't work right.
                 bulkRender(pendingBulkRender, pendingBulkRenderSize);
@@ -85,7 +93,6 @@ public class ClientRenderHandler {
             if (isKeyDown(bind)) {
                 if (!down) {
                     down = true;
-                    Minecraft mc = Minecraft.getInstance();
                     if (mc.world == null) {
                         mc.ingameGUI.getChatGUI().printChatMessage(new TranslationTextComponent("msg.blockrenderer.no_world"));
                         return;

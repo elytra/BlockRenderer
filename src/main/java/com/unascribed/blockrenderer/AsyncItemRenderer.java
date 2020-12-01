@@ -20,11 +20,13 @@ public class AsyncItemRenderer implements IAsyncReloader {
     private final CompletableFuture<Unit> allAsyncCompleted = new CompletableFuture<>();
     private final CompletableFuture<List<Void>> resultListFuture;
     private final Set<CompletableFuture<Void>> taskSet;
+    private final List<CompletableFuture<Void>> sourceFurtures;
     private final int taskCount;
     private final AtomicInteger asyncScheduled = new AtomicInteger();
     private final AtomicInteger asyncCompleted = new AtomicInteger();
 
     public AsyncItemRenderer(List<CompletableFuture<Void>> futures) {
+        sourceFurtures = futures;
         taskCount = futures.size();
         taskSet = new HashSet<>(futures);
         asyncScheduled.incrementAndGet();
@@ -47,6 +49,15 @@ public class AsyncItemRenderer implements IAsyncReloader {
             waitFor = stateFuture;
         }
         resultListFuture = Util.gather(list);
+    }
+
+    public void cancel() {
+        for (CompletableFuture<Void> future : sourceFurtures) {
+            if (!future.isDone()) {
+                future.cancel(false);
+            }
+        }
+        resultListFuture.cancel(false);
     }
 
     @Nonnull

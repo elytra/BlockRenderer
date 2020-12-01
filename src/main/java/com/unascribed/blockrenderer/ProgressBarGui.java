@@ -9,7 +9,6 @@ import javax.annotation.Nonnull;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.LoadingGui;
 import net.minecraft.item.ItemStack;
-import net.minecraft.resources.IAsyncReloader;
 import net.minecraft.util.ColorHelper;
 import net.minecraft.util.Util;
 import net.minecraft.util.math.MathHelper;
@@ -25,37 +24,54 @@ public class ProgressBarGui extends LoadingGui {
     private final String joined;
     private ITextComponent title;
     private List<ITextComponent> subTitles = Collections.emptyList();
-    private IAsyncReloader asyncReloader;
+    private AsyncItemRenderer asyncReloader;
     private float progress;
     private long fadeOutStart = -1;
     private long fadeInStart = -1;
     private long start = -1;
     private int rendered;
     private ItemStack stack = ItemStack.EMPTY;
+    private boolean canceled;
 
     public ProgressBarGui(Minecraft mc, int total, String joined) {
         this.mc = mc;
         this.total = total;
         this.joined = joined;
         this.title = new TranslationTextComponent("gui.blockrenderer.rendering", this.total, this.joined);
-        //TODO: Allow early exiting again when hitting escape and display the message with this lang key: "gui.blockrenderer.render_cancelled"
     }
 
     public void setFutures(List<CompletableFuture<Void>> futures) {
         this.asyncReloader = new AsyncItemRenderer(futures);
     }
 
+    public void cancel() {
+        if (!canceled) {
+            canceled = true;
+            title = new TranslationTextComponent("gui.blockrenderer.render_cancelled", rendered, total, total - rendered);
+            subTitles = Collections.emptyList();
+            stack = ItemStack.EMPTY;
+            asyncReloader.cancel();
+        }
+    }
+
     public void update(ItemStack stack) {
         rendered++;
         int remaining = total - rendered;
         if (remaining > 0) {
-            subTitles = new ArrayList<>();
-            subTitles.add(new TranslationTextComponent("gui.blockrenderer.progress", rendered, total, remaining));
-            subTitles.add(stack.getDisplayName().deepCopy().mergeStyle(stack.getRarity().color));
-            this.stack = stack;
+            if (canceled) {
+                //If canceled just update how much actually has been rendered so far
+                title = new TranslationTextComponent("gui.blockrenderer.render_cancelled", rendered, total, remaining);
+            } else {
+                //Otherwise update the subtitles and the like
+                subTitles = new ArrayList<>();
+                subTitles.add(new TranslationTextComponent("gui.blockrenderer.progress", rendered, total, remaining));
+                subTitles.add(stack.getDisplayName().deepCopy().mergeStyle(stack.getRarity().color));
+                this.stack = stack;
+            }
         } else {
-            title = new TranslationTextComponent("gui.blockrenderer.rendered", this.total, this.joined);
+            title = new TranslationTextComponent("gui.blockrenderer.rendered", total, joined);
             subTitles = Collections.emptyList();
+            this.stack = ItemStack.EMPTY;
         }
     }
 
