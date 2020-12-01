@@ -41,8 +41,8 @@ public class GuiEnterModId extends Screen {
 
         renderButton = addButton(new Button(width / 2 + 2, height / 6 + 120, 98, 20, new TranslationTextComponent("gui.render"), button -> {
             if (minecraft.world != null) {
-                BlockRenderer.inst.pendingBulkRender = text.getText();
-                BlockRenderer.inst.pendingBulkRenderSize = round(size.getSliderValue());
+                BlockRenderer.renderHandler.pendingBulkRender = text.getText();
+                BlockRenderer.renderHandler.pendingBulkRenderSize = round(size.getSliderValue());
             }
             minecraft.displayGuiScreen(old);
         }));
