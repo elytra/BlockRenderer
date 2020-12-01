@@ -3,10 +3,12 @@ package com.unascribed.blockrenderer;
 import com.google.common.base.Strings;
 import com.mojang.blaze3d.matrix.MatrixStack;
 import javax.annotation.Nonnull;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.AbstractSlider;
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.client.gui.widget.button.Button;
+import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.StringTextComponent;
 import net.minecraft.util.text.TranslationTextComponent;
@@ -14,51 +16,47 @@ import org.lwjgl.glfw.GLFW;
 
 public class GuiEnterModId extends Screen {
 
-    private String prefill;
+    private final String prefill;
+    private final Screen old;
     private TextFieldWidget text;
-    private Slider size;
-    private Screen old;
-    private Button renderButton;
+    private Slider slider;
+    private double sliderValue;
+    private boolean fixSliderMax;
 
     public GuiEnterModId(Screen old, String prefill) {
         super(StringTextComponent.EMPTY);
         this.old = old;
         this.prefill = Strings.nullToEmpty(prefill);
+        this.sliderValue = 512;
+    }
+
+    @Override
+    public void resize(@Nonnull Minecraft minecraft, int width, int height) {
+        String oldText = text.getText();
+        this.init(minecraft, width, height);
+        text.setText(oldText);
+        fixSliderMax = true;
     }
 
     @Override
     public void init() {
         minecraft.keyboardListener.enableRepeatEvents(true);
-        String oldText = (text == null ? prefill : text.getText());
-
-        double oldSize = (size == null ? 512 : size.getSliderValue());
-
         text = new TextFieldWidget(font, width / 2 - 100, height / 6 + 50, 200, 20, StringTextComponent.EMPTY);
-        text.setText(oldText);
+        text.setText(prefill);
 
         addButton(new Button(width / 2 - 100, height / 6 + 120, 98, 20, new TranslationTextComponent("gui.cancel"),
               button -> minecraft.displayGuiScreen(old)));
 
-        renderButton = addButton(new Button(width / 2 + 2, height / 6 + 120, 98, 20, new TranslationTextComponent("gui.render"), button -> {
-            if (minecraft.world != null) {
-                BlockRenderer.renderHandler.pendingBulkRender = text.getText();
-                BlockRenderer.renderHandler.pendingBulkRenderSize = round(size.getSliderValue());
-            }
-            minecraft.displayGuiScreen(old);
-        }));
-        int minSize = Math.min(minecraft.getMainWindow().getWidth(), minecraft.getMainWindow().getHeight());
-        size = addButton(new Slider(width / 2 - 100, height / 6 + 80, 150, 20, new TranslationTextComponent("gui.rendersize"),
-              Math.min(oldSize, minSize)));
-        //TODO: Slider min value: 16, Slider max value: Math.min(2048, minSize)
-
-        size.setWidth(200);
+        addButton(new Button(width / 2 + 2, height / 6 + 120, 98, 20, new TranslationTextComponent("gui.render"), button -> render()));
+        slider = addButton(new Slider(width / 2 - 100, height / 6 + 80, 200, 20, new TranslationTextComponent("gui.rendersize"), sliderValue,
+              16, getSliderMax()));
 
         text.setFocused2(true);
         text.setCanLoseFocus(false);
-        boolean enabled = minecraft.world != null;
-        renderButton.active = enabled;
-        text.setEnabled(enabled);
-        size.active = enabled;
+    }
+
+    private int getSliderMax() {
+        return Math.min(2048, Math.min(minecraft.getMainWindow().getWidth(), minecraft.getMainWindow().getHeight()));
     }
 
     private int round(double value) {
@@ -106,10 +104,22 @@ public class GuiEnterModId extends Screen {
         text.renderButton(matrix, mouseX, mouseY, partialTicks);
     }
 
+    private void render() {
+        if (minecraft.world != null) {
+            BlockRenderer.renderHandler.pendingBulkRender = text.getText();
+            BlockRenderer.renderHandler.pendingBulkRenderSize = round(sliderValue);
+        }
+        minecraft.displayGuiScreen(old);
+    }
+
     @Override
     public void tick() {
         super.tick();
         text.tick();
+        if (fixSliderMax) {//Ugly "hack" because the window's size isn't actually updated yet during init after a resize
+            fixSliderMax = false;
+            slider.updateSliderMax(getSliderMax());
+        }
     }
 
     @Override
@@ -117,7 +127,7 @@ public class GuiEnterModId extends Screen {
         if (text.canWrite() && keyCode != GLFW.GLFW_KEY_ESCAPE) {//Manually handle hitting escape to make the whole interface go away
             if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
                 //Handle processing both the enter key and the numpad enter key
-                renderButton.onPress();
+                render();
                 return true;
             }
             return text.keyPressed(keyCode, scanCode, modifiers);
@@ -147,39 +157,42 @@ public class GuiEnterModId extends Screen {
         minecraft.keyboardListener.enableRepeatEvents(false);
     }
 
-    //TODO: Re-evaluate
-    /*@Override
-    public void setEntryValue(int id, float value) {
-        size.setSliderValue(round(value), false);
+    private static double normalizeValue(double value, double min, double max) {
+        return MathHelper.clamp((MathHelper.clamp(value, min, max) - min) / (max - min), 0.0D, 1.0D);
     }
-
-    @Override
-    public void setEntryValue(int id, boolean value) {
-    }
-
-    @Override
-    public void setEntryValue(int id, String value) {
-    }*/
 
     private class Slider extends AbstractSlider {
 
-        public Slider(int x, int y, int width, int height, ITextComponent message, double defaultValue) {
-            super(x, y, width, height, message, defaultValue);
+        private final double minValue;
+        private double maxValue;
+
+        public Slider(int x, int y, int width, int height, ITextComponent message, double defaultValue, double minValue, double maxValue) {
+            super(x, y, width, height, message, normalizeValue(defaultValue, minValue, maxValue));
+            this.minValue = minValue;
+            this.maxValue = maxValue;
+            func_230979_b_();
         }
 
         @Override
         protected void func_230979_b_() {
-            String px = Integer.toString(round(sliderValue));
-            setMessage(getTitle().deepCopy().append(new StringTextComponent(": " + px + "x" + px)));
+            setMessage(new TranslationTextComponent("gui.selected_dimensions", round(GuiEnterModId.this.sliderValue)));
+        }
+
+        private double denormalizeValue() {
+            return MathHelper.clamp(MathHelper.lerp(MathHelper.clamp(sliderValue, 0.0D, 1.0D), minValue, maxValue), minValue, maxValue);
         }
 
         @Override
         protected void func_230972_a_() {
-            //TODO: This seems to be some sort of set
+            GuiEnterModId.this.sliderValue = denormalizeValue();
         }
 
-        public double getSliderValue() {
-            return sliderValue;
+        protected void updateSliderMax(double maxValue) {
+            double value = denormalizeValue();
+            this.maxValue = maxValue;
+            sliderValue = normalizeValue(value, minValue, this.maxValue);
+            func_230972_a_();
+            func_230979_b_();
         }
     }
 }

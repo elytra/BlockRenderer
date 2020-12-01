@@ -15,6 +15,7 @@
   "gui.cappedboth": "(Capped at %1$dx%1$d due to your window width and height)",
   "gui.cappedheight": "(Capped at %1$dx%1$d due to your window height)",
   "gui.cappedwidth": "(Capped at %1$dx%1$d due to your window width)",
+  "gui.selected_dimensions": "%1$dx%1$d",
 
   "gui.cancel": "Cancel",
   "gui.render": "Render",

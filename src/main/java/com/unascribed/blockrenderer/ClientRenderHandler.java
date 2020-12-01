@@ -93,11 +93,13 @@ public class ClientRenderHandler {
                     }
 
                     if (Screen.hasControlDown()) {
-                        String modId = null;
-                        if (hovered != null && hovered.getHasStack()) {
-                            modId = hovered.getStack().getItem().getRegistryName().getNamespace();
+                        if (mc.world != null) {
+                            String modId = null;
+                            if (hovered != null && hovered.getHasStack()) {
+                                modId = hovered.getStack().getItem().getRegistryName().getNamespace();
+                            }
+                            mc.displayGuiScreen(new GuiEnterModId(mc.currentScreen, modId));
                         }
-                        mc.displayGuiScreen(new GuiEnterModId(mc.currentScreen, modId));
                     } else if (currentScreen instanceof ContainerScreen) {
                         if (hovered == null) {
                             mc.ingameGUI.getChatGUI().printChatMessage(new TranslationTextComponent("msg.slot.absent"));
