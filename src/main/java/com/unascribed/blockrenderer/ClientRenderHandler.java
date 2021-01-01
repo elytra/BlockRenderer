@@ -1,6 +1,5 @@
 package com.unascribed.blockrenderer;
 
-import java.awt.image.BufferedImage;
 import java.io.File;
 import java.nio.ByteBuffer;
 import java.text.DateFormat;
@@ -15,8 +14,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-
-import javax.imageio.ImageIO;
 
 import org.lwjgl.BufferUtils;
 import org.lwjgl.glfw.GLFW;
@@ -41,6 +38,7 @@ import net.minecraft.client.gui.screen.IngameMenuScreen;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.inventory.ContainerScreen;
 import net.minecraft.client.renderer.RenderHelper;
+import net.minecraft.client.renderer.texture.NativeImage;
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.client.util.InputMappings;
 import net.minecraft.entity.Entity;
@@ -262,7 +260,7 @@ public class ClientRenderHandler {
 			BlockRenderer.log.warn("Failed to render "+task.getId(), t);
 			return new TranslationTextComponent("msg.blockrenderer.render.fail");
 		}
-		BufferedImage image = readPixels(size, size);
+		NativeImage image = readPixels(size, size);
 		tearDownRenderState();
 		// This code would need to be refactored to perform this save off-thread and not block the
 		// main thread. This is a problem for later.
@@ -285,7 +283,7 @@ public class ClientRenderHandler {
 			// render the entire batch gathering the images for it
 			// and revert the render state
 			setUpRenderState(Minecraft.getInstance(), size);
-			List<Pair<RenderTask, BufferedImage>> images = new ArrayList<>();
+			List<Pair<RenderTask, NativeImage>> images = new ArrayList<>();
 			for (RenderTask task : tasks) {
 				RenderSystem.clearColor(0, 0, 0, 0);
 				RenderSystem.clear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT, Minecraft.IS_RUNNING_ON_MAC);
@@ -302,13 +300,13 @@ public class ClientRenderHandler {
 			if (pendingBulkItems) types++;
 			if (pendingBulkEntities) types++;
 			if (pendingBulkStructures) types++;
-			for (Pair<RenderTask, BufferedImage> image : images) {
+			for (Pair<RenderTask, NativeImage> image : images) {
 				saveImage(image.getSecond(), image.getFirst(), types > 1 ? new File(folder, image.getFirst().getCategory()) : folder, includeDateInFilename);
 			}
 		}, Util.getServerExecutor());
 	}
 
-	private static File saveImage(BufferedImage image, RenderTask task, File folder, boolean includeDateInFilename) {
+	private static File saveImage(NativeImage image, RenderTask task, File folder, boolean includeDateInFilename) {
 		try {
 			String fileName = (includeDateInFilename ? dateFormat.format(new Date()) + "_" : "") + sanitize(task.getDisplayName());
 			File f = new File(folder, fileName + ".png");
@@ -318,8 +316,7 @@ public class ClientRenderHandler {
 				i++;
 			}
 			Files.createParentDirs(f);
-			f.createNewFile();
-			ImageIO.write(image, "PNG", f);
+			image.write(f);
 			return f;
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -331,16 +328,17 @@ public class ClientRenderHandler {
 		return str.replaceAll("[^A-Za-z0-9-_ ]", "_");
 	}
 
-	private static BufferedImage readPixels(int width, int height) {
+	private static NativeImage readPixels(int width, int height) {
 		ByteBuffer buf = BufferUtils.createByteBuffer(width * height * 4);
-		RenderSystem.readPixels(0, Minecraft.getInstance().getMainWindow().getHeight() - height, width, height, GL12.GL_BGRA, GL11.GL_UNSIGNED_BYTE, buf);
-		BufferedImage img = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+		RenderSystem.readPixels(0, Minecraft.getInstance().getMainWindow().getHeight() - height, width, height, GL12.GL_RGBA, GL11.GL_UNSIGNED_BYTE, buf);
+		NativeImage img = new NativeImage(width, height, false);
 		int[] pixels = new int[width * height];
 		buf.asIntBuffer().get(pixels);
-		// Load the pixels into the BufferedImage, flipped vertically as OpenGL and
+		// Load the pixels into the NativeImage, flipped vertically as OpenGL and
 		// Minecraft disagree about which way is up
 		for (int y = 0; y < height; y++) {
-			img.setRGB(0, (height-1)-y, width, 1, pixels, y*width, width);
+			int off = y*width;
+			for (int x = 0; x < width; x++) img.setPixelRGBA(x, (height-1)-y, pixels[off++]);
 		}
 		return img;
 	}
